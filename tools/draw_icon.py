@@ -37,10 +37,10 @@ for _ in range(70):
     d.ellipse((sc(x - r), sc(y - r), sc(x + r), sc(y + r)), fill=(255, 255, 255, a))
 img = Image.alpha_composite(img, stars)
 
-# カプセル：ガチャのような丸いカプセル。上半分が色付き、下半分が白。少し傾ける
+# カプセル：ガチャのような丸いカプセル。上半分が白、下半分が色付き。少し傾ける
 R = 330                  # 半径
 cx = cy = 512
-top_col, bottom_col = (255, 190, 80), (250, 250, 255)
+top_col, bottom_col = (250, 250, 255), (255, 190, 80)
 band_col = (205, 190, 235)
 
 cap = layer()
