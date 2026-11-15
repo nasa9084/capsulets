@@ -37,12 +37,8 @@ struct KeyboardView: View {
                 state.tab = state.tab == .kana ? .number : .kana
             }
             FunctionKey(label: .symbol("arrow.left")) { state.moveCursor(-1) }
-            FunctionKey(label: .symbol("arrow.right")) { state.moveCursor(1) }
-            if state.needsGlobeKey {
-                FunctionKey(label: .symbol("globe")) { state.nextKeyboard() }
-            } else {
-                FunctionKey(label: .symbol("keyboard.chevron.compact.down")) { state.dismissKeyboard() }
-            }
+            FunctionKey(label: .symbol("keyboard.chevron.compact.down")) { state.dismissKeyboard() }
+            FunctionKey(label: .symbol("globe")) { state.nextKeyboard() }
         }
     }
 
@@ -81,16 +77,16 @@ struct KeyboardView: View {
         }
     }
 
-    // MARK: - 右の列（削除・空白・改行）
+    // MARK: - 右の列（削除・カーソル・空白・改行）
 
     private var rightColumn: some View {
         VStack(spacing: Self.spacing) {
             RepeatKey(systemImage: "delete.left") { state.delete() }
-            FunctionKey(label: .text(state.isComposing ? "次候補" : "空白")) { state.space() }
+            FunctionKey(label: .symbol("arrow.right")) { state.moveCursor(1) }
+            FunctionKey(label: .text("空白")) { state.space() }
             FunctionKey(label: .text(state.isComposing ? "確定" : "改行"), isProminent: state.isComposing) {
                 state.enter()
             }
-            .frame(height: Self.keyHeight * 2 + Self.spacing)
         }
     }
 }
@@ -114,22 +110,12 @@ struct CandidateBar: View {
                                 .lineLimit(1)
                                 .padding(.horizontal, 12)
                                 .frame(maxHeight: .infinity)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .fill(state.selectedIndex == index ? KeyColor.pressed : Color.clear)
-                                        .padding(.vertical, 5)
-                                )
                         }
                         .buttonStyle(.plain)
                         .id(index)
                     }
                 }
                 .padding(.horizontal, 4)
-            }
-            .onChange(of: state.selectedIndex) { _, index in
-                if let index {
-                    withAnimation { reader.scrollTo(index, anchor: .center) }
-                }
             }
             .onChange(of: state.candidates.first?.text) { _, _ in
                 // 候補が変わったら先頭に戻す

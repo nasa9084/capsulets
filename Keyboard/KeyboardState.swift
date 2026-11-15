@@ -13,8 +13,6 @@ final class KeyboardState: ObservableObject {
     @Published var tab: Tab = .kana
     @Published var needsGlobeKey = false
     @Published private(set) var candidates: [Candidate] = []
-    /// 「次候補」で選んでいる候補
-    @Published private(set) var selectedIndex: Int?
     @Published private(set) var isComposing = false
 
     weak var controller: UIInputViewController?
@@ -68,10 +66,6 @@ final class KeyboardState: ObservableObject {
     /// かな・句読点など、変換の対象になる文字
     func inputKana(_ text: String) {
         playSound(.input)
-        if selectedIndex != nil {
-            // 候補を選んでいる途中で次の文字を打ったら、その候補で確定してから続ける
-            chooseSelected()
-        }
         composing.insertAtCursorPosition(text, inputStyle: .direct)
         refresh()
     }
@@ -86,7 +80,7 @@ final class KeyboardState: ObservableObject {
     /// 直前の文字を「小書き → 濁点 → 半濁点」の順に切り替える
     func modifyLastCharacter() {
         playSound(.input)
-        guard isComposing, selectedIndex == nil,
+        guard isComposing,
               let last = composing.convertTargetBeforeCursor.last,
               let next = KanaTable.nextVariant(of: last)
         else { return }
@@ -101,12 +95,6 @@ final class KeyboardState: ObservableObject {
             proxy?.deleteBackward()
             return
         }
-        if selectedIndex != nil {
-            // 候補の選択をやめて、ひらがなに戻す
-            selectedIndex = nil
-            showMarkedText(composing.convertTarget)
-            return
-        }
         composing.deleteBackwardFromCursorPosition(count: 1)
         if composing.isEmpty {
             showMarkedText("")
@@ -117,21 +105,11 @@ final class KeyboardState: ObservableObject {
         }
     }
 
-    /// 入力中は「次候補」、そうでなければ空白
+    /// 空白を入れる。入力中なら、ひらがなのまま確定してから入れる
     func space() {
         playSound(.function)
-        guard isComposing else {
-            proxy?.insertText(" ")
-            return
-        }
-        guard !candidates.isEmpty else { return }
-        let index = ((selectedIndex ?? -1) + 1) % candidates.count
-        selectedIndex = index
-        // 選んでいる候補と、その候補に含まれない残りのひらがなを並べて見せる
-        var rest = composing
-        rest.prefixComplete(composingCount: candidates[index].composingCount)
-        let restText = rest.isEmpty ? "" : rest.convertTarget
-        showMarkedText(candidates[index].text + restText)
+        commitAsIs()
+        proxy?.insertText(" ")
     }
 
     /// 入力中は「確定」、そうでなければ改行
@@ -141,11 +119,7 @@ final class KeyboardState: ObservableObject {
             proxy?.insertText("\n")
             return
         }
-        if selectedIndex != nil {
-            chooseSelected()
-        } else {
-            commitAsIs()
-        }
+        commitAsIs()
     }
 
     func moveCursor(_ offset: Int) {
@@ -198,16 +172,9 @@ final class KeyboardState: ObservableObject {
         finishComposition()
     }
 
-    private func chooseSelected() {
-        if let selectedIndex {
-            choose(selectedIndex)
-        }
-    }
-
     private func finishComposition() {
         composing = ComposingText()
         candidates = []
-        selectedIndex = nil
         isComposing = false
         converter.stopComposition()
         converter.commitUpdateLearningData()
@@ -217,7 +184,6 @@ final class KeyboardState: ObservableObject {
 
     /// 入力中の文字を下線付き（未確定）で出し直して、候補を取り直す
     private func refresh() {
-        selectedIndex = nil
         isComposing = true
         showMarkedText(composing.convertTarget)
         candidates = converter.requestCandidates(composing, options: options).mainResults
