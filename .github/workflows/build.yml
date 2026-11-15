@@ -1,0 +1,127 @@
+name: Build IPA for SideStore
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build
+  cancel-in-progress: false
+
+env:
+  APP_NAME: Capsulets
+  DISPLAY_NAME: Capsulets
+  BUNDLE_ID: com.nasa9084.capsulets
+  MARKETING_VERSION: "1.0"
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build (unsigned)
+        run: |
+          xcodebuild \
+            -project "$APP_NAME.xcodeproj" \
+            -scheme "$APP_NAME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            MARKETING_VERSION="$MARKETING_VERSION" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Ad-hoc sign with entitlements
+        # 未署名だと SideStore が App Group を使うことを読み取れないので、
+        # 証明書なし（ad-hoc）で entitlements だけ埋め込んでおく。SideStore が本署名し直す。
+        run: |
+          APP="build/Build/Products/Release-iphoneos/$APP_NAME.app"
+          codesign -f -s - --entitlements Entitlements/CapsuletsWidgets.entitlements "$APP/PlugIns/CapsuletsWidgets.appex"
+          codesign -f -s - --entitlements Entitlements/Capsulets.entitlements "$APP"
+          codesign -d --entitlements - "$APP/PlugIns/CapsuletsWidgets.appex"
+          codesign -d --entitlements - "$APP"
+
+      - name: Package IPA
+        id: ipa
+        run: |
+          mkdir -p dist/Payload
+          cp -R "build/Build/Products/Release-iphoneos/$APP_NAME.app" dist/Payload/
+          (cd dist && zip -qry "$APP_NAME.ipa" Payload)
+          echo "size=$(stat -f%z "dist/$APP_NAME.ipa")" >> "$GITHUB_OUTPUT"
+
+      - name: Publish build release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="build-${{ github.run_number }}"
+          gh release create "$TAG" "dist/$APP_NAME.ipa" \
+            --title "$MARKETING_VERSION ($TAG)" \
+            --notes "Commit: ${{ github.sha }}"
+
+      - name: Update SideStore source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BUILD: ${{ github.run_number }}
+          SIZE: ${{ steps.ipa.outputs.size }}
+        run: |
+          BASE="https://github.com/$REPO/releases/download"
+          DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          jq -n \
+            --arg name "$DISPLAY_NAME" \
+            --arg bid "$BUNDLE_ID" \
+            --arg dev "${{ github.repository_owner }}" \
+            --arg icon "https://raw.githubusercontent.com/$REPO/main/icon.png" \
+            --arg ver "$MARKETING_VERSION" \
+            --arg build "$BUILD" \
+            --arg date "$DATE" \
+            --arg url "$BASE/build-$BUILD/$APP_NAME.ipa" \
+            --argjson size "$SIZE" \
+            --arg msg "$(git log -1 --pretty=%s)" \
+            '{
+              name: ($name + " Source"),
+              nsfw: false,
+              apps: [{
+                name: $name,
+                bundleIdentifier: $bid,
+                developerName: $dev,
+                localizedDescription: "自分用の小さなアプリ（capsulet）をまとめたアプリ",
+                iconURL: $icon,
+                tintColor: "#5B6CFF",
+                versions: [{
+                  version: $ver,
+                  buildVersion: $build,
+                  date: $date,
+                  localizedDescription: $msg,
+                  downloadURL: $url,
+                  size: $size,
+                  minOSVersion: "17.0"
+                }],
+                appPermissions: {
+                  entitlements: ["com.apple.security.application-groups"],
+                  privacy: {}
+                }
+              }]
+            }' > dist/source.json
+          cat dist/source.json
+
+          # 固定タグ "source" のリリースに source.json を置き続ける
+          gh release view source >/dev/null 2>&1 || \
+            gh release create source --title "SideStore source" \
+              --notes "SideStoreに追加するソースURL: $BASE/source/source.json" --latest=false
+          gh release upload source dist/source.json --clobber
