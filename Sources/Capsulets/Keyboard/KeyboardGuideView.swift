@@ -16,6 +16,7 @@ struct KeyboardGuideView: View {
                 Section("使い始め方") {
                     Text("1. 設定 → 一般 → キーボード → キーボード → 新しいキーボードを追加 で「Capsulets」を選ぶ")
                     Text("2. 文字を打つ画面で地球儀キーを長押しして「Kana」に切り替える")
+                    Text("3. タイプ音を鳴らすには、同じ画面で「Kana」→「フルアクセスを許可」をオンにする（このキーボードは通信しません）")
                     Button("設定を開く") {
                         if let url = URL(string: UIApplication.openSettingsURLString) {
                             UIApplication.shared.open(url)

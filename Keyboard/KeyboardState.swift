@@ -1,3 +1,4 @@
+import AudioToolbox
 import KanaKanjiConverterModuleWithDefaultDictionary
 import SwiftUI
 import UIKit
@@ -44,10 +45,29 @@ final class KeyboardState: ObservableObject {
         )
     }()
 
+    // MARK: - タイプ音
+
+    /// iOS 標準キーボードと同じシステム音
+    enum KeySound: SystemSoundID {
+        /// 文字キー
+        case input = 1104
+        /// 削除キー
+        case delete = 1155
+        /// 空白・改行・切り替えなどの機能キー
+        case function = 1156
+    }
+
+    /// タイプ音を鳴らす。キーボード拡張機能では「フルアクセスを許可」がオンのときだけ鳴らせる
+    func playSound(_ sound: KeySound) {
+        guard controller?.hasFullAccess == true else { return }
+        AudioServicesPlaySystemSound(sound.rawValue)
+    }
+
     // MARK: - キーからの入力
 
     /// かな・句読点など、変換の対象になる文字
     func inputKana(_ text: String) {
+        playSound(.input)
         if selectedIndex != nil {
             // 候補を選んでいる途中で次の文字を打ったら、その候補で確定してから続ける
             chooseSelected()
@@ -58,12 +78,14 @@ final class KeyboardState: ObservableObject {
 
     /// 数字・記号など、そのまま入れる文字
     func inputDirect(_ text: String) {
+        playSound(.input)
         commitAsIs()
         proxy?.insertText(text)
     }
 
     /// 直前の文字を「小書き → 濁点 → 半濁点」の順に切り替える
     func modifyLastCharacter() {
+        playSound(.input)
         guard isComposing, selectedIndex == nil,
               let last = composing.convertTargetBeforeCursor.last,
               let next = KanaTable.nextVariant(of: last)
@@ -74,6 +96,7 @@ final class KeyboardState: ObservableObject {
     }
 
     func delete() {
+        playSound(.delete)
         guard isComposing else {
             proxy?.deleteBackward()
             return
@@ -96,6 +119,7 @@ final class KeyboardState: ObservableObject {
 
     /// 入力中は「次候補」、そうでなければ空白
     func space() {
+        playSound(.function)
         guard isComposing else {
             proxy?.insertText(" ")
             return
@@ -112,6 +136,7 @@ final class KeyboardState: ObservableObject {
 
     /// 入力中は「確定」、そうでなければ改行
     func enter() {
+        playSound(.function)
         guard isComposing else {
             proxy?.insertText("\n")
             return
@@ -124,16 +149,19 @@ final class KeyboardState: ObservableObject {
     }
 
     func moveCursor(_ offset: Int) {
+        playSound(.function)
         guard !isComposing else { return }
         proxy?.adjustTextPosition(byCharacterOffset: offset)
     }
 
     func nextKeyboard() {
+        playSound(.function)
         commitAsIs()
         controller?.advanceToNextInputMode()
     }
 
     func dismissKeyboard() {
+        playSound(.function)
         commitAsIs()
         controller?.dismissKeyboard()
     }
@@ -141,7 +169,12 @@ final class KeyboardState: ObservableObject {
     // MARK: - 確定
 
     /// 候補をタップして確定する
-    func choose(_ index: Int) {
+    func tapCandidate(_ index: Int) {
+        playSound(.function)
+        choose(index)
+    }
+
+    private func choose(_ index: Int) {
         guard candidates.indices.contains(index) else { return }
         let candidate = candidates[index]
         showMarkedText(candidate.text)

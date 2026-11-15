@@ -59,7 +59,8 @@ targets:
             IsASCIICapable: false
             PrefersRightToLeft: false
             PrimaryLanguage: ja-JP
-            RequestsOpenAccess: false
+            # タイプ音を鳴らすのに「フルアクセスを許可」が必要
+            RequestsOpenAccess: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.nasa9084.capsulets.Keyboard

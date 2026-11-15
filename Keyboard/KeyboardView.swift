@@ -33,6 +33,7 @@ struct KeyboardView: View {
     private var leftColumn: some View {
         VStack(spacing: Self.spacing) {
             FunctionKey(label: .text(state.tab == .kana ? "☆123" : "あいう")) {
+                state.playSound(.function)
                 state.tab = state.tab == .kana ? .number : .kana
             }
             FunctionKey(label: .symbol("arrow.left")) { state.moveCursor(-1) }
@@ -105,7 +106,7 @@ struct CandidateBar: View {
                 HStack(spacing: 0) {
                     ForEach(Array(state.candidates.enumerated()), id: \.offset) { index, candidate in
                         Button {
-                            state.choose(index)
+                            state.tapCandidate(index)
                         } label: {
                             Text(candidate.text)
                                 .font(.system(size: 18))
