@@ -40,15 +40,13 @@ struct Preset: Identifiable, Codable, Hashable {
     var mealIDs: Set<UUID>
 }
 
-/// ごはんくじのデータ（アプリとウィジェットで共有する App Group の UserDefaults に保存する）
+/// ごはんくじのデータ（App Group の UserDefaults に保存する）
 enum FortuneMealStore {
     private static let storage = CapsuletStorage(prefix: "fortuneMeal")
 
     private enum Key {
         static let meals = "meals"
         static let presets = "presets"
-        static let lastResult = "lastResult"
-        static let lastSource = "lastSource"
         static let sortOrder = "sortOrder"
     }
 
@@ -60,14 +58,6 @@ enum FortuneMealStore {
 
     static func loadPresets() -> [Preset]? { storage.decode([Preset].self, Key.presets) }
     static func savePresets(_ presets: [Preset]) { storage.encode(presets, Key.presets) }
-
-    static var lastResult: String? { storage.string(Key.lastResult) }
-    static var lastSource: String? { storage.string(Key.lastSource) }
-
-    static func setLastResult(_ result: String, source: String) {
-        storage.set(result, Key.lastResult)
-        storage.set(source, Key.lastSource)
-    }
 
     // MARK: - 旧アプリ（ごはんくじ）からの移行
 

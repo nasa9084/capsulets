@@ -1,5 +1,4 @@
 import SwiftUI
-import WidgetKit
 
 struct FortuneMealView: View {
     @State private var meals: [Meal] = []
@@ -237,10 +236,6 @@ struct FortuneMealView: View {
             let pick = selectedMeals.randomElement()
             result = pick?.name
             resultMealID = pick?.id
-            if let result {
-                FortuneMealStore.setLastResult(result, source: "アプリ")
-                WidgetCenter.shared.reloadTimelines(ofKind: FortuneMealWidgetKind.kind)
-            }
             isRolling = false
             hapticTrigger += 1
         }
@@ -301,12 +296,10 @@ struct FortuneMealView: View {
 
     private func save() {
         FortuneMealStore.saveMeals(meals)
-        WidgetCenter.shared.reloadTimelines(ofKind: FortuneMealWidgetKind.kind)
     }
 
     private func savePresets() {
         FortuneMealStore.savePresets(presets)
-        WidgetCenter.shared.reloadTimelines(ofKind: FortuneMealWidgetKind.kind)
     }
 }
 

@@ -16,8 +16,6 @@ targets:
     sources:
       - Sources
       - Shared
-    dependencies:
-      - target: CapsuletsWidgets
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.nasa9084.capsulets
@@ -31,23 +29,3 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     scheme: {}
 
-  # 各 capsulet のウィジェットをまとめて入れる拡張機能（App ID を増やさないように1つにまとめる）
-  CapsuletsWidgets:
-    type: app-extension
-    platform: iOS
-    sources:
-      - Widget
-      - Shared
-    info:
-      path: Widget/Info.plist
-      properties:
-        # SideStore は App ID 名にこの名前を使うので英数字にしておく
-        CFBundleDisplayName: Widgets
-        CFBundleShortVersionString: $(MARKETING_VERSION)
-        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
-        NSExtension:
-          NSExtensionPointIdentifier: com.apple.widgetkit-extension
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.nasa9084.capsulets.Widgets
-        CODE_SIGN_ENTITLEMENTS: Entitlements/CapsuletsWidgets.entitlements

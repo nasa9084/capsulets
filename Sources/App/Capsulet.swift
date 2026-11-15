@@ -1,5 +1,4 @@
 import SwiftUI
-import WidgetKit
 
 /// 1つのサブアプリ。タブに出す名前とアイコン、中身の画面を持つ
 struct Capsulet: Identifiable {
@@ -47,7 +46,6 @@ enum CapsuletRegistry {
                 },
                 apply: { data in
                     FortuneMealStore.applyExport(try FortuneMealStore.decodeExport(data))
-                    WidgetCenter.shared.reloadTimelines(ofKind: FortuneMealWidgetKind.kind)
                 }
             )
         ) {
