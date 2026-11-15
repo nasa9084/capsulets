@@ -15,6 +15,9 @@ final class KeyboardState: ObservableObject {
     @Published private(set) var candidates: [Candidate] = []
     @Published private(set) var isComposing = false
 
+    /// 押している最中のキーの表示用
+    let flick = FlickModel()
+
     weak var controller: UIInputViewController?
 
     private var proxy: (any UITextDocumentProxy)? { controller?.textDocumentProxy }
@@ -102,6 +105,59 @@ final class KeyboardState: ObservableObject {
             finishComposition()
         } else {
             refresh()
+        }
+    }
+
+    /// カーソルから行頭までを削除する。入力中は、入力中の文字をすべて消す
+    func deleteToLineStart() {
+        playSound(.delete)
+        if isComposing {
+            showMarkedText("")
+            proxy?.unmarkText()
+            finishComposition()
+            return
+        }
+        deleteBackwardToLineStart(remainingPasses: 20, previous: nil)
+    }
+
+    /// iOS は一度にカーソルの近くの文字しか教えてくれないので、行頭に届くまで少しずつ消す
+    private func deleteBackwardToLineStart(remainingPasses: Int, previous: String?) {
+        guard remainingPasses > 0, let proxy, let before = proxy.documentContextBeforeInput else { return }
+        if before == previous {
+            // 前回の削除がまだ反映されていない。消しすぎないよう、もう少し待つ
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                self?.deleteBackwardToLineStart(remainingPasses: remainingPasses - 1, previous: previous)
+            }
+            return
+        }
+        let line = before.split(separator: "\n", omittingEmptySubsequences: false).last ?? ""
+        guard !line.isEmpty else { return }
+        for _ in 0..<line.count {
+            proxy.deleteBackward()
+        }
+        // 見えていた範囲に改行がなければ、まだ行の途中かもしれないので続きを確かめる
+        if line.count == before.count {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                self?.deleteBackwardToLineStart(remainingPasses: remainingPasses - 1, previous: before)
+            }
+        }
+    }
+
+    /// カーソルから行末までを削除する。すでに行末なら、次の改行を 1 つ消す
+    func deleteToLineEnd() {
+        playSound(.delete)
+        guard !isComposing, let proxy, let after = proxy.documentContextAfterInput, !after.isEmpty else { return }
+        let line = after.split(separator: "\n", omittingEmptySubsequences: false).first ?? ""
+        let target = line.isEmpty ? "\n" : String(line)
+        // 前に向かって消す API しかないので、カーソルを後ろへ動かしてから消す
+        proxy.adjustTextPosition(byCharacterOffset: target.utf16.count)
+        let count = target.count
+        // カーソルの移動が反映されるのを少し待つ
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            guard let proxy = self?.proxy else { return }
+            for _ in 0..<count {
+                proxy.deleteBackward()
+            }
         }
     }
 

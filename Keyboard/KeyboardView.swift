@@ -4,8 +4,6 @@ import UIKit
 /// キーボード全体。上が変換候補、下が 5 列 × 4 段のキー
 struct KeyboardView: View {
     @ObservedObject var state: KeyboardState
-    /// 押している最中のフリックキー（上に重ねて、伸びる様子を描く）
-    @State private var flick: FlickPreview?
 
     static let coordinateSpace = "keyboard"
 
@@ -32,7 +30,7 @@ struct KeyboardView: View {
         .frame(height: Self.totalHeight)
         .coordinateSpace(name: Self.coordinateSpace)
         .overlay(alignment: .topLeading) {
-            FlickBubble(preview: flick)
+            FlickBubble(model: state.flick)
                 .allowsHitTesting(false)
         }
     }
@@ -62,17 +60,17 @@ struct KeyboardView: View {
                 }
                 HStack(spacing: Self.spacing) {
                     TapKey(label: "゛゜小") { state.modifyLastCharacter() }
-                    FlickKey(labels: KanaTable.wa, preview: $flick) { state.inputKana($0) }
-                    FlickKey(labels: KanaTable.punctuation, title: "、。?!", preview: $flick) { state.inputKana($0) }
+                    FlickKey(labels: KanaTable.wa, flick: state.flick) { state.inputKana($0) }
+                    FlickKey(labels: KanaTable.punctuation, title: "、。?!", flick: state.flick) { state.inputKana($0) }
                 }
             case .number:
                 ForEach(0..<3, id: \.self) { row in
                     keyRow(KanaTable.numberRows[row]) { state.inputDirect($0) }
                 }
                 HStack(spacing: Self.spacing) {
-                    FlickKey(labels: KanaTable.brackets, title: "()[]", preview: $flick) { state.inputDirect($0) }
-                    FlickKey(labels: KanaTable.zero, preview: $flick) { state.inputDirect($0) }
-                    FlickKey(labels: KanaTable.dots, title: ".,-/", preview: $flick) { state.inputDirect($0) }
+                    FlickKey(labels: KanaTable.brackets, title: "()[]", flick: state.flick) { state.inputDirect($0) }
+                    FlickKey(labels: KanaTable.zero, flick: state.flick) { state.inputDirect($0) }
+                    FlickKey(labels: KanaTable.dots, title: ".,-/", flick: state.flick) { state.inputDirect($0) }
                 }
             }
         }
@@ -81,7 +79,7 @@ struct KeyboardView: View {
     private func keyRow(_ keys: [[String]], action: @escaping (String) -> Void) -> some View {
         HStack(spacing: Self.spacing) {
             ForEach(keys, id: \.self) { labels in
-                FlickKey(labels: labels, preview: $flick, action: action)
+                FlickKey(labels: labels, flick: state.flick, action: action)
             }
         }
     }
@@ -90,7 +88,12 @@ struct KeyboardView: View {
 
     private var rightColumn: some View {
         VStack(spacing: Self.spacing) {
-            RepeatKey(systemImage: "delete.left") { state.delete() }
+            DeleteKey(
+                flick: state.flick,
+                onDelete: { state.delete() },
+                onDeleteToLineStart: { state.deleteToLineStart() },
+                onDeleteToLineEnd: { state.deleteToLineEnd() }
+            )
             FunctionKey(label: .symbol("arrow.right")) { state.moveCursor(1) }
             FunctionKey(label: .text("空白")) { state.space() }
             FunctionKey(label: .text(state.isComposing ? "確定" : "改行"), isProminent: state.isComposing) {
@@ -178,16 +181,29 @@ struct FlickPreview: Equatable {
     var text: String
 }
 
+/// 押している最中のキーの様子を、重ねて描く表示（FlickBubble）に伝える。
+/// キーボード全体を描き直さずに済むよう、KeyboardState とは別に持つ
+final class FlickModel: ObservableObject {
+    @Published var preview: FlickPreview?
+
+    func update(_ next: FlickPreview?) {
+        if preview != next {
+            preview = next
+        }
+    }
+}
+
 /// フリックで 5 方向の文字を入れるキー
 struct FlickKey: View {
     /// [中央, 左, 上, 右, 下]
     let labels: [String]
     /// キーに出す文字（省略すると中央の文字）
     var title: String?
-    @Binding var preview: FlickPreview?
+    let flick: FlickModel
     let action: (String) -> Void
 
-    private static let threshold: CGFloat = 16
+    /// これ以上指を動かしたらフリックとみなす距離
+    static let threshold: CGFloat = 10
 
     var body: some View {
         GeometryReader { geometry in
@@ -200,18 +216,15 @@ struct FlickKey: View {
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
                         let direction = flickDirection(value.translation)
-                        let next = FlickPreview(
+                        flick.update(FlickPreview(
                             frame: geometry.frame(in: .named(KeyboardView.coordinateSpace)),
                             direction: direction,
                             text: labels[direction]
-                        )
-                        if preview != next {
-                            preview = next
-                        }
+                        ))
                     }
                     .onEnded { value in
                         let text = labels[flickDirection(value.translation)]
-                        preview = nil
+                        flick.update(nil)
                         action(text)
                     }
             )
@@ -233,29 +246,27 @@ struct FlickKey: View {
 }
 
 /// 押しているフリックキーの上に重ねる表示。
-/// 押しただけなら濃い色のキー、フリックするとその方向の隣のマスまで伸びる
+/// 押すと青くなり、フリックするとその方向の隣のマスまで伸びる
 struct FlickBubble: View {
-    let preview: FlickPreview?
+    @ObservedObject var model: FlickModel
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            if let preview {
+            if let preview = model.preview {
                 let cell = targetCell(preview)
                 let shape = preview.frame.union(cell)
-                let isFlicked = preview.direction != 0
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(isFlicked ? Color.accentColor : KeyColor.pressed)
-                    .shadow(color: .black.opacity(0.3), radius: isFlicked ? 3 : 0, x: 0, y: 1)
+                    .fill(Color.accentColor)
+                    .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
                     .frame(width: shape.width, height: shape.height)
                     .position(x: shape.midX, y: shape.midY)
                 Text(preview.text)
-                    .font(.system(size: 28, weight: .medium))
-                    .foregroundStyle(isFlicked ? Color.white : Color.primary)
+                    .font(.system(size: preview.text.count > 1 ? 20 : 28, weight: .medium))
+                    .foregroundStyle(Color.white)
                     .position(x: cell.midX, y: cell.midY)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .animation(.easeOut(duration: 0.08), value: preview)
     }
 
     /// 入る文字を出すマス（フリックした方向の隣。中央ならキー自身）
@@ -337,41 +348,83 @@ struct KeyButtonStyle: ButtonStyle {
     }
 }
 
-/// 押しっぱなしで繰り返すキー（削除）
-struct RepeatKey: View {
-    let systemImage: String
-    let action: () -> Void
+/// 削除キー。タップで 1 文字、押しっぱなしで連続、左フリックで行頭まで、上フリックで行末まで削除する
+struct DeleteKey: View {
+    let flick: FlickModel
+    let onDelete: () -> Void
+    let onDeleteToLineStart: () -> Void
+    let onDeleteToLineEnd: () -> Void
 
     @State private var isPressed = false
+    /// 押しっぱなしの連続削除が始まったか（始まっていたら、指を離したときには消さない）
+    @State private var didRepeat = false
     @State private var timer: Timer?
 
     var body: some View {
-        KeyFace(color: isPressed ? KeyColor.functionPressed : KeyColor.function) {
-            Image(systemName: systemImage).font(.system(size: 18))
-        }
-        .foregroundStyle(Color.primary)
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    guard !isPressed else { return }
-                    isPressed = true
-                    action()
-                    // 少し待ってから連続で実行する
-                    timer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: false) { _ in
-                        timer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { _ in
-                            action()
+        GeometryReader { geometry in
+            KeyFace(color: KeyColor.function) {
+                Image(systemName: "delete.left").font(.system(size: 18))
+            }
+            .foregroundStyle(Color.primary)
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        let direction = flickDirection(value.translation)
+                        if !isPressed {
+                            isPressed = true
+                            didRepeat = false
+                            startRepeat()
+                        }
+                        if direction != 0 {
+                            stopRepeat()
+                        }
+                        flick.update(FlickPreview(
+                            frame: geometry.frame(in: .named(KeyboardView.coordinateSpace)),
+                            direction: direction,
+                            text: direction == 1 ? "行頭" : direction == 2 ? "行末" : "⌫"
+                        ))
+                    }
+                    .onEnded { value in
+                        stopRepeat()
+                        isPressed = false
+                        flick.update(nil)
+                        switch flickDirection(value.translation) {
+                        case 1: onDeleteToLineStart()
+                        case 2: onDeleteToLineEnd()
+                        default:
+                            if !didRepeat {
+                                onDelete()
+                            }
                         }
                     }
-                }
-                .onEnded { _ in
-                    isPressed = false
-                    timer?.invalidate()
-                    timer = nil
-                }
-        )
-        .onDisappear {
-            timer?.invalidate()
-            timer = nil
+            )
         }
+        .onDisappear(perform: stopRepeat)
+    }
+
+    /// 0: フリックなし, 1: 左, 2: 上
+    private func flickDirection(_ translation: CGSize) -> Int {
+        let (dx, dy) = (translation.width, translation.height)
+        guard max(abs(dx), abs(dy)) >= FlickKey.threshold else { return 0 }
+        if abs(dx) > abs(dy) {
+            return dx < 0 ? 1 : 0
+        }
+        return dy < 0 ? 2 : 0
+    }
+
+    /// 少し待ってから連続で削除する
+    private func startRepeat() {
+        timer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: false) { _ in
+            didRepeat = true
+            onDelete()
+            timer = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { _ in
+                onDelete()
+            }
+        }
+    }
+
+    private func stopRepeat() {
+        timer?.invalidate()
+        timer = nil
     }
 }
