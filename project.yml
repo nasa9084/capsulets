@@ -23,6 +23,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.nasa9084.capsulets
         CODE_SIGN_ENTITLEMENTS: Entitlements/Capsulets.entitlements
         GENERATE_INFOPLIST_FILE: YES
+        # 生成される Info.plist に、このファイルの項目（URL スキームなど）が足される
+        INFOPLIST_FILE: Supporting/Info.plist
         INFOPLIST_KEY_CFBundleDisplayName: Capsulets
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait

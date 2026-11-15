@@ -3,7 +3,7 @@ import WidgetKit
 
 struct FortuneMealView: View {
     @State private var meals: [Meal] = []
-    @AppStorage("fortuneMeal.sortOrder") private var sortOrder: SortOrder = .name
+    @AppStorage(FortuneMealStore.sortOrderKey, store: AppGroup.defaults) private var sortOrder: SortOrder = .name
     @State private var presets: [Preset] = []
     @State private var isSavingPreset = false
     @State private var newPresetName = ""

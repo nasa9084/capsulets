@@ -49,7 +49,11 @@ enum FortuneMealStore {
         static let presets = "presets"
         static let lastResult = "lastResult"
         static let lastSource = "lastSource"
+        static let sortOrder = "sortOrder"
     }
+
+    /// `@AppStorage` で並び順を保存するときのキー（App Group 側に保存する）
+    static var sortOrderKey: String { storage.key(Key.sortOrder) }
 
     static func loadMeals() -> [Meal]? { storage.decode([Meal].self, Key.meals) }
     static func saveMeals(_ meals: [Meal]) { storage.encode(meals, Key.meals) }
@@ -63,5 +67,27 @@ enum FortuneMealStore {
     static func setLastResult(_ result: String, source: String) {
         storage.set(result, Key.lastResult)
         storage.set(source, Key.lastSource)
+    }
+
+    // MARK: - 旧アプリ（ごはんくじ）からの移行
+
+    /// 旧アプリが `capsulets://import/fortuneMeal?data=...` で渡してくるデータ
+    struct Export: Codable {
+        var version: Int
+        var meals: [Meal]
+        var presets: [Preset]
+        var sortOrder: String?
+    }
+
+    static func decodeExport(_ data: Data) throws -> Export {
+        try JSONDecoder().decode(Export.self, from: data)
+    }
+
+    static func applyExport(_ export: Export) {
+        saveMeals(export.meals)
+        savePresets(export.presets)
+        if let sortOrder = export.sortOrder {
+            storage.set(sortOrder, Key.sortOrder)
+        }
     }
 }

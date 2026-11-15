@@ -30,49 +30,50 @@ d = ImageDraw.Draw(stars)
 for _ in range(70):
     x, y = random.uniform(30, 994), random.uniform(30, 994)
     # カプセルの上には置かない
-    if abs((x - 512) + (y - 512)) < 260 and abs((x - 512) - (y - 512)) < 640:
+    if math.hypot(x - 512, y - 512) < 360:
         continue
     r = random.choice((2, 2, 3, 3, 4, 6))
     a = random.randint(120, 255)
     d.ellipse((sc(x - r), sc(y - r), sc(x + r), sc(y + r)), fill=(255, 255, 255, a))
 img = Image.alpha_composite(img, stars)
 
-# カプセル：横長に描いてから -45° 回転させる
-L, W = 680, 300          # 全長と太さ
+# カプセル：ガチャのような丸いカプセル。上半分が色付き、下半分が白。少し傾ける
+R = 330                  # 半径
 cx = cy = 512
+top_col, bottom_col = (255, 190, 80), (250, 250, 255)
+band_col = (205, 190, 235)
+
 cap = layer()
 d = ImageDraw.Draw(cap)
-x0, x1 = cx - L / 2, cx + L / 2
-y0, y1 = cy - W / 2, cy + W / 2
-left_col, right_col = (255, 196, 92), (250, 250, 255)
+box = (sc(cx - R), sc(cy - R), sc(cx + R), sc(cy + R))
+d.pieslice(box, 180, 360, fill=top_col + (255,))
+d.pieslice(box, 0, 180, fill=bottom_col + (255,))
+# 合わせ目の帯（はめ込み部分）
+d.rectangle((sc(cx - R), sc(cy - 14), sc(cx + R), sc(cy + 14)), fill=band_col + (255,))
+circle = layer()
+ImageDraw.Draw(circle).ellipse(box, fill=(0, 0, 0, 255))
+cap.putalpha(Image.composite(cap.getchannel("A"), Image.new("L", (S, S), 0), circle.getchannel("A")))
 
-# 左半分（オレンジ）と右半分（白）
-left = layer(); dl = ImageDraw.Draw(left)
-dl.rounded_rectangle((sc(x0), sc(y0), sc(x1), sc(y1)), radius=sc(W / 2), fill=left_col + (255,))
-mask = layer(); ImageDraw.Draw(mask).rectangle((0, 0, sc(cx), S), fill=(0, 0, 0, 255))
-cap.paste(left, (0, 0), mask.getchannel("A"))
-
-right = layer(); dr = ImageDraw.Draw(right)
-dr.rounded_rectangle((sc(x0), sc(y0), sc(x1), sc(y1)), radius=sc(W / 2), fill=right_col + (255,))
-mask = layer(); ImageDraw.Draw(mask).rectangle((sc(cx), 0, S, S), fill=(0, 0, 0, 255))
-cap.paste(right, (0, 0), mask.getchannel("A"))
-
-# 合わせ目
-d = ImageDraw.Draw(cap)
-d.line((sc(cx), sc(y0 + 6), sc(cx), sc(y1 - 6)), fill=(180, 150, 210, 255), width=sc(10))
-
-# ツヤ（上側に細いハイライト）
-gloss = layer()
-ImageDraw.Draw(gloss).rounded_rectangle(
-    (sc(x0 + 70), sc(y0 + 40), sc(x1 - 70), sc(y0 + 92)), radius=sc(26), fill=(255, 255, 255, 120)
+# 立体感：下側に向かって少し暗くする
+shade = layer()
+ImageDraw.Draw(shade).ellipse(
+    (sc(cx - R * 1.25), sc(cy - R * 1.45), sc(cx + R * 0.95), sc(cy + R * 0.75)), fill=(0, 0, 0, 255)
 )
-a = gloss.getchannel("A").filter(ImageFilter.GaussianBlur(sc(5)))
+inv = Image.eval(shade.getchannel("A").filter(ImageFilter.GaussianBlur(sc(60))), lambda v: int((255 - v) * 0.22))
+dark = Image.new("RGBA", (S, S), (40, 20, 90, 0))
+dark.putalpha(Image.composite(inv, Image.new("L", (S, S), 0), cap.getchannel("A")))
+cap = Image.alpha_composite(cap, dark)
+
+# ツヤ（左上に丸いハイライト）
+gloss = layer()
+gd = ImageDraw.Draw(gloss)
+gd.ellipse((sc(cx - 230), sc(cy - 250), sc(cx - 90), sc(cy - 150)), fill=(255, 255, 255, 170))
+gd.ellipse((sc(cx - 70), sc(cy - 275), sc(cx - 30), sc(cy - 245)), fill=(255, 255, 255, 140))
+a = gloss.getchannel("A").filter(ImageFilter.GaussianBlur(sc(6)))
 gloss = Image.new("RGBA", (S, S), (255, 255, 255, 0)); gloss.putalpha(a)
-cap_alpha = cap.getchannel("A")
-gloss.putalpha(Image.composite(gloss.getchannel("A"), Image.new("L", (S, S), 0), cap_alpha))
 cap = Image.alpha_composite(cap, gloss)
 
-cap = cap.rotate(45, resample=Image.BICUBIC, center=(sc(cx), sc(cy)))
+cap = cap.rotate(-20, resample=Image.BICUBIC, center=(sc(cx), sc(cy)))
 
 # 影
 shadow = Image.new("RGBA", (S, S), (10, 8, 30, 0))

@@ -31,6 +31,12 @@ GitHub Actionsで未署名のIPAをビルドし、SideStoreで無料Apple IDで�
 3. 保存するデータがあれば `CapsuletStorage(prefix: "<名前>")` を使う（`@AppStorage` を使うときもキーに `<名前>.` を付ける）
 4. ウィジェットを作るなら `Widget/<名前>/` に置き、`CapsuletsWidgetBundle` に追加する
 
+## 外からのデータ読み込み
+
+`capsulets://import/<capsulet id>?data=<base64url の JSON>` を開くと、確認ダイアログのあとでその capsulet にデータを読み込む（`Capsulet` の `importer` で受け付ける）。
+
+- 旧アプリ「ごはんくじ」（nasa9084/fortune-meal）のメニューの「Capsulets へ移行」がこれを使う
+
 ## インストール
 
 1. リポジトリは**public**のままにする（SideStoreが認証なしでリリースからダウンロードするため）
