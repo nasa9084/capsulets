@@ -28,7 +28,9 @@ jobs:
         run: brew install xcodegen
 
       - name: Generate Xcode project
-        run: xcodegen generate
+        run: |
+          xcodebuild -version
+          xcodegen generate
 
       - name: Build (unsigned)
         run: |
@@ -51,6 +53,8 @@ jobs:
         # 証明書なし（ad-hoc）で entitlements だけ埋め込んでおく。SideStore が本署名し直す。
         run: |
           APP="build/Build/Products/Release-iphoneos/$APP_NAME.app"
+          # 中の拡張機能から先に署名する（キーボードは entitlements なし）
+          codesign -f -s - "$APP/PlugIns/CapsuletsKeyboard.appex"
           codesign -f -s - --entitlements Entitlements/Capsulets.entitlements "$APP"
           codesign -d --entitlements - "$APP"
 

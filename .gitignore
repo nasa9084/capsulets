@@ -1,5 +1,0 @@
-*.xcodeproj/
-build/
-dist/
-.DS_Store
-Widget/Info.plist

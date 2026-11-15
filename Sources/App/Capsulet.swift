@@ -51,6 +51,9 @@ enum CapsuletRegistry {
         ) {
             FortuneMealView()
         },
+        Capsulet(id: "keyboard", title: "キーボード", systemImage: "keyboard") {
+            KeyboardGuideView()
+        },
     ]
 
     static func capsulet(id: String) -> Capsulet? {

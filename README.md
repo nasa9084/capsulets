@@ -5,6 +5,7 @@
 | capsulet | 内容 |
 | --- | --- |
 | ごはんくじ | 食事の候補を複数選んで、ボタンを押すとその中から1つ選ばれる |
+| キーボード | 日本語入力キーボード（フリック）の使い方と試し打ち。キーボード本体は拡張機能 `CapsuletsKeyboard` |
 
 GitHub Actionsで未署名のIPAをビルドし、SideStoreで無料Apple IDで署名してiPhoneにインストールする。
 
@@ -16,6 +17,7 @@ GitHub Actionsで未署名のIPAをビルドし、SideStoreで無料Apple IDで�
 - `Shared/` — データまわりのコード（ウィジェットを作るときは拡張機能と共有する）
   - `AppGroup.swift` — 共有の保存先。capsulet ごとに `CapsuletStorage(prefix:)` でキーに接頭辞を付ける
   - `Shared/<名前>/` — 各 capsulet のデータ
+- `Keyboard/` — 日本語入力キーボード（拡張機能）。かな漢字変換は [AzooKeyKanaKanjiConverter](https://github.com/azooKey/AzooKeyKanaKanjiConverter) を使う
 - `tools/draw_icon.py` — アイコン（`icon.png` と AppIcon）を生成する
 - `.github/workflows/build.yml` — mainへのpushでビルドし、次を行う
   - `build-<番号>` リリースに `Capsulets.ipa` を添付
@@ -39,6 +41,8 @@ GitHub Actionsで未署名のIPAをビルドし、SideStoreで無料Apple IDで�
 1. リポジトリは**public**のままにする（SideStoreが認証なしでリリースからダウンロードするため）
 2. SideStoreの Sources → ＋ で次のURLを追加し、「Capsulets」をインストール
    `https://github.com/nasa9084/capsulets/releases/download/source/source.json`
+3. 初回のダイアログでは「Keep App Extensions (Register App ID for Each Extension)」を選ぶ
+4. キーボードを使うには、設定 → 一般 → キーボード → キーボード → 新しいキーボードを追加 で「Capsulets」を選ぶ
 
 ## 更新
 
@@ -46,4 +50,4 @@ GitHub Actionsで未署名のIPAをビルドし、SideStoreで無料Apple IDで�
 
 ## 注意
 
-- 無料Apple IDでは同時に有効なアプリが3つまで（SideStore自身を含む）。App IDは本体で1つ使う
+- 無料Apple IDでは同時に有効なアプリが3つまで（SideStore自身を含む）。App IDは本体とキーボードで2つ使う
