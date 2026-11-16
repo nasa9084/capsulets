@@ -7,9 +7,12 @@ final class SnippetMenuModel: ObservableObject {
     /// 指が乗っている行
     @Published var hovered: Int?
     var keyboardWidth: CGFloat = 0
+    /// リストの左端（地球儀キーのすぐ右）
+    var minX: CGFloat = 0
 
-    func show(keyboardWidth: CGFloat) {
+    func show(keyboardWidth: CGFloat, minX: CGFloat) {
         self.keyboardWidth = keyboardWidth
+        self.minX = minX
         // 開くたびに読み直して、アプリでの編集をすぐ反映する
         snippets = Array(SnippetStore.load().prefix(SnippetMenuLayout.maxRows))
         hovered = nil
@@ -22,22 +25,20 @@ final class SnippetMenuModel: ObservableObject {
     }
 
     func hover(at point: CGPoint) {
-        let index = SnippetMenuLayout.index(at: point, keyboardWidth: keyboardWidth, rows: snippets.count)
+        let index = SnippetMenuLayout.index(at: point, keyboardWidth: keyboardWidth, minX: minX, rows: snippets.count)
         if hovered != index {
             hovered = index
         }
     }
 }
 
-/// リストの位置。左の列の右側に、下ぞろえで並べる
+/// リストの位置。地球儀キーの右側に、下ぞろえで並べる
 enum SnippetMenuLayout {
     static let rowHeight: CGFloat = 38
     static let maxRows = Int((KeyboardView.totalHeight - KeyboardView.padding * 2) / rowHeight)
 
-    static func frame(keyboardWidth: CGFloat, rows: Int) -> CGRect {
+    static func frame(keyboardWidth: CGFloat, minX: CGFloat, rows: Int) -> CGRect {
         let padding = KeyboardView.padding
-        let unit = (keyboardWidth - padding * 2 - KeyboardView.spacing * 4) / 5
-        let minX = padding + unit + KeyboardView.spacing
         let height = CGFloat(max(rows, 1)) * rowHeight
         return CGRect(
             x: minX,
@@ -48,9 +49,9 @@ enum SnippetMenuLayout {
     }
 
     /// 指の位置にある行。リストまで指が来ていなければ nil
-    static func index(at point: CGPoint, keyboardWidth: CGFloat, rows: Int) -> Int? {
+    static func index(at point: CGPoint, keyboardWidth: CGFloat, minX: CGFloat, rows: Int) -> Int? {
         guard rows > 0 else { return nil }
-        let frame = frame(keyboardWidth: keyboardWidth, rows: rows)
+        let frame = frame(keyboardWidth: keyboardWidth, minX: minX, rows: rows)
         guard point.x >= frame.minX else { return nil }
         // リストより上まで指が行っても、一番上の行を選んだままにする
         let row = Int(((point.y - frame.minY) / rowHeight).rounded(.down))
@@ -65,7 +66,9 @@ struct SnippetMenu: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             if model.isVisible {
-                let frame = SnippetMenuLayout.frame(keyboardWidth: model.keyboardWidth, rows: model.snippets.count)
+                let frame = SnippetMenuLayout.frame(
+                    keyboardWidth: model.keyboardWidth, minX: model.minX, rows: model.snippets.count
+                )
                 VStack(spacing: 0) {
                     if model.snippets.isEmpty {
                         row(Text("定型文は Capsulets アプリで登録").foregroundStyle(Color.secondary), isHovered: false)
@@ -101,10 +104,11 @@ struct SnippetMenu: View {
     }
 }
 
-/// 地球儀キー。タップで次のキーボード、長押しで定型文リスト
+/// 地球儀キー。タップでフリックと QWERTY の切り替え、長押しで定型文リスト
 struct GlobeKey: View {
     let menu: SnippetMenuModel
     let keyboardWidth: CGFloat
+    let menuMinX: CGFloat
     let onTap: () -> Void
     let onMenuOpen: () -> Void
     let onSelect: (Snippet) -> Void
@@ -123,7 +127,7 @@ struct GlobeKey: View {
                     if !isPressed {
                         isPressed = true
                         timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: false) { _ in
-                            menu.show(keyboardWidth: keyboardWidth)
+                            menu.show(keyboardWidth: keyboardWidth, minX: menuMinX)
                             onMenuOpen()
                         }
                     }

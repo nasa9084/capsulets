@@ -18,11 +18,17 @@ struct KeyboardView: View {
             CandidateBar(state: state)
                 .frame(height: Self.candidateBarHeight)
             GeometryReader { geometry in
-                let unit = (geometry.size.width - Self.spacing * 4) / 5
-                HStack(alignment: .top, spacing: Self.spacing) {
-                    leftColumn(keyboardWidth: geometry.size.width + Self.padding * 2).frame(width: unit)
-                    centerKeys.frame(width: unit * 3 + Self.spacing * 2)
-                    rightColumn.frame(width: unit)
+                switch state.layout {
+                case .flick:
+                    let unit = (geometry.size.width - Self.spacing * 4) / 5
+                    HStack(alignment: .top, spacing: Self.spacing) {
+                        leftColumn(keyboardWidth: geometry.size.width + Self.padding * 2, unit: unit)
+                            .frame(width: unit)
+                        centerKeys.frame(width: unit * 3 + Self.spacing * 2)
+                        rightColumn.frame(width: unit)
+                    }
+                case .qwerty:
+                    QwertyKeys(state: state, width: geometry.size.width)
                 }
             }
             .padding(Self.padding)
@@ -41,7 +47,7 @@ struct KeyboardView: View {
 
     // MARK: - 左の列（タブ切替・カーソル・キーボード切替と定型文）
 
-    private func leftColumn(keyboardWidth: CGFloat) -> some View {
+    private func leftColumn(keyboardWidth: CGFloat, unit: CGFloat) -> some View {
         VStack(spacing: Self.spacing) {
             FunctionKey(label: .symbol("keyboard.chevron.compact.down")) { state.dismissKeyboard() }
             FunctionKey(label: .symbol("arrow.left")) { state.moveCursor(-1) }
@@ -50,7 +56,8 @@ struct KeyboardView: View {
             GlobeKey(
                 menu: state.snippetMenu,
                 keyboardWidth: keyboardWidth,
-                onTap: { state.nextKeyboard() },
+                menuMinX: Self.padding + unit + Self.spacing,
+                onTap: { state.toggleLayout() },
                 onMenuOpen: { state.playSound(.function) },
                 onSelect: { state.insertSnippet($0) }
             )

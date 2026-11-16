@@ -29,7 +29,30 @@ final class KeyboardState: ObservableObject {
         }
     }
 
+    /// キーの配列。地球儀キーで切り替える
+    enum Layout: String {
+        case flick
+        case qwerty
+    }
+
+    /// QWERTY のシフトの状態
+    enum Shift {
+        case off
+        /// 次の 1 文字だけ大文字
+        case once
+        /// 大文字のまま
+        case locked
+    }
+
+    private static let layoutKey = "keyboard.layout"
+
     @Published var tab: Tab = .kana
+    /// 最後に使っていた配列を次回も使う
+    @Published private(set) var layout =
+        Layout(rawValue: UserDefaults.standard.string(forKey: layoutKey) ?? "") ?? .flick
+    @Published private(set) var shift: Shift = .off
+    /// QWERTY の数字記号のページ（0: 数字, 1: 記号）
+    @Published private(set) var symbolPage = 0
     @Published var needsGlobeKey = false
     @Published private(set) var candidates: [Candidate] = []
     @Published private(set) var isComposing = false
@@ -112,6 +135,52 @@ final class KeyboardState: ObservableObject {
         playSound(.function)
         commitAsIs()
         tab = tab.next
+        shift = .off
+        symbolPage = 0
+    }
+
+    /// フリックと QWERTY を切り替える
+    func toggleLayout() {
+        playSound(.function)
+        commitAsIs()
+        layout = layout == .flick ? .qwerty : .flick
+        shift = .off
+        symbolPage = 0
+        UserDefaults.standard.set(layout.rawValue, forKey: Self.layoutKey)
+    }
+
+    // MARK: - QWERTY
+
+    /// QWERTY の文字キー。日本語ではローマ字入力、英語と数字記号ではそのまま入れる
+    func inputQwerty(_ key: String) {
+        let text = shift == .off ? key : key.uppercased()
+        if tab == .kana {
+            playSound(.input)
+            // シフト中の文字（大文字）や「ー」は、かなに変換せずそのまま入力中の文字に足す
+            let isRoman = shift == .off && key.first?.isASCII == true
+            composing.insertAtCursorPosition(text, inputStyle: isRoman ? .roman2kana : .direct)
+            refresh()
+        } else {
+            inputDirect(text)
+        }
+        if shift == .once {
+            shift = .off
+        }
+    }
+
+    /// シフトなし → 次の 1 文字だけ大文字 → 大文字のまま → シフトなし
+    func toggleShift() {
+        playSound(.function)
+        switch shift {
+        case .off: shift = .once
+        case .once: shift = .locked
+        case .locked: shift = .off
+        }
+    }
+
+    func toggleSymbolPage() {
+        playSound(.function)
+        symbolPage = symbolPage == 0 ? 1 : 0
     }
 
     /// 直前の英字の大文字・小文字を切り替える
@@ -268,7 +337,12 @@ final class KeyboardState: ObservableObject {
     /// 変換せず、ひらがなのまま確定する
     func commitAsIs() {
         guard isComposing else { return }
-        showMarkedText(composing.convertTarget)
+        var text = composing.convertTarget
+        // ローマ字入力で最後に残った "n" は「ん」にする
+        if text.hasSuffix("n") {
+            text = text.dropLast() + "ん"
+        }
+        showMarkedText(text)
         proxy?.unmarkText()
         finishComposition()
     }
