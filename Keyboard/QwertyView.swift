@@ -9,24 +9,24 @@ struct QwertyKeys: View {
     private var spacing: CGFloat { KeyboardView.spacing }
     /// 文字キー 1 つの幅（1 段に 10 個）
     private var unit: CGFloat { (width - spacing * 9) / 10 }
-    /// 一番下の段の左 2 つ（切り替え・地球儀）の幅
-    private var bottomSideWidth: CGFloat { unit * 1.4 }
+    /// 一番下の段の機能キー（切り替え・地球儀・改行）の幅
+    private var bottomSideWidth: CGFloat { unit * 1.25 }
 
     private static let letters = [
         ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
-        ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
+        ["a", "s", "d", "f", "g", "h", "j", "k", "l", "."],
         ["z", "x", "c", "v", "b", "n", "m"],
     ]
     private static let symbols = [
         [
             ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
             ["-", "/", ":", ";", "(", ")", "¥", "&", "@", "\""],
-            [".", ",", "?", "!", "'"],
+            [".", ",", "?", "!", "'", "`"],
         ],
         [
             ["[", "]", "{", "}", "#", "%", "^", "*", "+", "="],
-            ["_", "\\", "|", "~", "<", ">", "$", "€", "£", "・"],
-            [".", ",", "?", "!", "'"],
+            ["_", "\\", "|", "~", "<", ">", "$", "€", "£", "…"],
+            [".", ",", "?", "!", "'", "§", "†"],
         ],
     ]
 
@@ -41,6 +41,16 @@ struct QwertyKeys: View {
             HStack(spacing: spacing) {
                 modeKey
                 letterRow(rows[2])
+                if state.tab == .number, state.symbolPage == 0 {
+                    // 絵文字キーボードは直接開けないので、iOS の次のキーボードに切り替える
+                    Button {
+                        state.nextKeyboard()
+                    } label: {
+                        Image(systemName: "face.smiling").font(.system(size: 20))
+                    }
+                    .buttonStyle(KeyButtonStyle(color: KeyColor.normal, pressedColor: KeyColor.pressed))
+                    .frame(width: unit)
+                }
                 DeleteKey(
                     flick: state.flick,
                     onDelete: { state.delete() },
@@ -49,8 +59,7 @@ struct QwertyKeys: View {
                 )
             }
             HStack(spacing: spacing) {
-                // 押すと切り替わる先のタブ名を出す
-                FunctionKey(label: .text(state.nextTab.title)) { state.switchTab() }
+                FunctionKey(label: .text(state.tab == .number ? "ABC" : "123")) { state.switchTab() }
                     .frame(width: bottomSideWidth)
                 GlobeKey(
                     menu: state.snippetMenu,
@@ -61,15 +70,20 @@ struct QwertyKeys: View {
                     onSelect: { state.insertSnippet($0) }
                 )
                 .frame(width: bottomSideWidth)
-                LetterKey(label: ",", flick: state.flick) { state.inputDirect(",") }
-                    .frame(width: unit)
-                FunctionKey(label: .text("空白")) { state.space() }
-                LetterKey(label: ".", flick: state.flick) { state.inputDirect(".") }
-                    .frame(width: unit)
-                FunctionKey(label: .text(state.isComposing ? "確定" : "改行"), isProminent: state.isComposing) {
-                    state.enter()
+                Button {
+                    state.space()
+                } label: {
+                    Text("space").font(.system(size: 16))
                 }
-                .frame(width: unit * 2 + spacing)
+                .buttonStyle(KeyButtonStyle(color: KeyColor.normal, pressedColor: KeyColor.pressed))
+                // 矢印 2 つは、すき間を詰めてひとまとまりに見せる
+                HStack(spacing: 1) {
+                    FunctionKey(label: .symbol("arrow.left")) { state.moveCursor(-1) }
+                    FunctionKey(label: .symbol("arrow.right")) { state.moveCursor(1) }
+                }
+                .frame(width: unit * 1.9)
+                FunctionKey(label: .symbol("return")) { state.enter() }
+                    .frame(width: bottomSideWidth)
             }
         }
     }
