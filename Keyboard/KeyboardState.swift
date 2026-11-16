@@ -334,8 +334,7 @@ final class KeyboardState: ObservableObject {
     private func choose(_ index: Int) {
         guard candidates.indices.contains(index) else { return }
         let candidate = candidates[index]
-        showMarkedText(candidate.text)
-        proxy?.unmarkText()
+        commitMarkedText(as: candidate.text)
         converter.setCompletedData(candidate)
         converter.updateLearningData(candidate)
         composing.prefixComplete(composingCount: candidate.composingCount)
@@ -350,9 +349,16 @@ final class KeyboardState: ObservableObject {
     /// 変換せず、ひらがなのまま確定する
     func commitAsIs() {
         guard isComposing else { return }
-        showMarkedText(composing.convertTarget)
-        proxy?.unmarkText()
+        commitMarkedText(as: composing.convertTarget)
         finishComposition()
+    }
+
+    /// 未確定の文字を、指定した文字に置き換えて確定する。
+    /// 「setMarkedText → unmarkText」で確定すると、直後に残りを未確定で出し直したとき（部分確定）に
+    /// 確定が後回しになり、確定した文字が消えて残りが確定されてしまう。
+    /// insertText は未確定の文字を置き換えて確定するので、こちらを使う
+    private func commitMarkedText(as text: String) {
+        proxy?.insertText(text)
     }
 
     private func finishComposition() {
