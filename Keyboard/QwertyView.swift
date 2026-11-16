@@ -96,7 +96,7 @@ struct QwertyKeys: View {
                 if key == ".", state.tab != .number {
                     // 英字のページの「.」だけ、フリックでよく使う記号を打てる。
                     // 右端のキーなので、右フリックは使わない（伸びた表示が画面の外に出る）
-                    FlickKey(labels: Self.periodFlicks, showsFlickHints: true, flick: state.flick) {
+                    FlickKey(labels: Self.periodFlicks, flick: state.flick) {
                         state.inputQwerty($0)
                     }
                     .frame(width: unit)
