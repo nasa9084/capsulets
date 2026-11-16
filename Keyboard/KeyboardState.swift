@@ -293,10 +293,22 @@ final class KeyboardState: ObservableObject {
         commitAsIs()
     }
 
+    /// カーソルを動かす。入力中は、変換する範囲（先頭からカーソルまで）を縮めたり伸ばしたりする
     func moveCursor(_ offset: Int) {
         playSound(.function)
-        guard !isComposing else { return }
-        proxy?.adjustTextPosition(byCharacterOffset: offset)
+        guard isComposing else {
+            proxy?.adjustTextPosition(byCharacterOffset: offset)
+            return
+        }
+        let moved = composing.moveCursorFromCursorPosition(count: offset)
+        if composing.isAtStartIndex {
+            // 範囲が空になるところまでは縮めない
+            _ = composing.moveCursorFromCursorPosition(count: -moved)
+            return
+        }
+        if moved != 0 {
+            refresh()
+        }
     }
 
     func nextKeyboard() {
@@ -354,10 +366,21 @@ final class KeyboardState: ObservableObject {
     // MARK: - 表示
 
     /// 入力中の文字を下線付き（未確定）で出し直して、候補を取り直す
+    /// 変換するのは先頭からカーソルまで。矢印キーでカーソルを動かすと、その範囲の候補に変わる
     private func refresh() {
         isComposing = true
-        showMarkedText(composing.convertTarget)
-        candidates = converter.requestCandidates(composing, options: options).mainResults
+        let target = composing.prefixToCursorPosition()
+        let text = composing.convertTarget
+        // 変換する範囲を選択状態にして見せる（範囲が全体のときは末尾にカーソルを置くだけ）
+        let targetLength = (target.convertTarget as NSString).length
+        let isWhole = composing.isAtEndIndex
+        proxy?.setMarkedText(
+            text,
+            selectedRange: isWhole
+                ? NSRange(location: (text as NSString).length, length: 0)
+                : NSRange(location: 0, length: targetLength)
+        )
+        candidates = converter.requestCandidates(target, options: options).mainResults
     }
 
     private func showMarkedText(_ text: String) {
