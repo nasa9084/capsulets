@@ -17,6 +17,8 @@ final class KeyboardState: ObservableObject {
 
     /// 押している最中のキーの表示用
     let flick = FlickModel()
+    /// 地球儀キーの長押しで出す定型文リスト
+    let snippetMenu = SnippetMenuModel()
 
     weak var controller: UIInputViewController?
 
@@ -78,6 +80,13 @@ final class KeyboardState: ObservableObject {
         playSound(.input)
         commitAsIs()
         proxy?.insertText(text)
+    }
+
+    /// 定型文を入れる。入力中なら、ひらがなのまま確定してから入れる
+    func insertSnippet(_ snippet: Snippet) {
+        playSound(.input)
+        commitAsIs()
+        proxy?.insertText(snippet.text)
     }
 
     /// 直前の文字を「小書き → 濁点 → 半濁点」の順に切り替える

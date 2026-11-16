@@ -20,7 +20,7 @@ struct KeyboardView: View {
             GeometryReader { geometry in
                 let unit = (geometry.size.width - Self.spacing * 4) / 5
                 HStack(alignment: .top, spacing: Self.spacing) {
-                    leftColumn.frame(width: unit)
+                    leftColumn(keyboardWidth: geometry.size.width + Self.padding * 2).frame(width: unit)
                     centerKeys.frame(width: unit * 3 + Self.spacing * 2)
                     rightColumn.frame(width: unit)
                 }
@@ -33,11 +33,15 @@ struct KeyboardView: View {
             FlickBubble(model: state.flick)
                 .allowsHitTesting(false)
         }
+        .overlay(alignment: .topLeading) {
+            SnippetMenu(model: state.snippetMenu)
+                .allowsHitTesting(false)
+        }
     }
 
-    // MARK: - 左の列（タブ切替・カーソル・キーボード切替）
+    // MARK: - 左の列（タブ切替・カーソル・キーボード切替と定型文）
 
-    private var leftColumn: some View {
+    private func leftColumn(keyboardWidth: CGFloat) -> some View {
         VStack(spacing: Self.spacing) {
             FunctionKey(label: .text(state.tab == .kana ? "☆123" : "あいう")) {
                 state.playSound(.function)
@@ -45,7 +49,13 @@ struct KeyboardView: View {
             }
             FunctionKey(label: .symbol("arrow.left")) { state.moveCursor(-1) }
             FunctionKey(label: .symbol("keyboard.chevron.compact.down")) { state.dismissKeyboard() }
-            FunctionKey(label: .symbol("globe")) { state.nextKeyboard() }
+            GlobeKey(
+                menu: state.snippetMenu,
+                keyboardWidth: keyboardWidth,
+                onTap: { state.nextKeyboard() },
+                onMenuOpen: { state.playSound(.function) },
+                onSelect: { state.insertSnippet($0) }
+            )
         }
     }
 

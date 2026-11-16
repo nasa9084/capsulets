@@ -1,17 +1,19 @@
 import Foundation
 
-/// アプリ本体とウィジェットで共有する保存先（すべての capsulet で1つの App Group を使う）
+/// アプリ本体と拡張機能（キーボードなど）で共有する保存先（すべての capsulet で1つの App Group を使う）
 enum AppGroup {
     static let baseBundleID = "com.nasa9084.capsulets"
-    static let widgetBundleSuffix = ".Widgets"
+    /// 拡張機能の Bundle ID の末尾（本体の Bundle ID に戻すために外す）
+    static let extensionBundleSuffixes = [".Keyboard", ".Widgets"]
 
     /// SideStore は Bundle ID と App Group ID の末尾に Team ID を付けて署名し直す。
     /// （例: com.nasa9084.capsulets.ABCDE12345 / group.com.nasa9084.capsulets.ABCDE12345）
     /// 実行中の Bundle ID から App Group ID を組み立てれば、どちらの環境でも一致する。
     static var id: String {
         var id = Bundle.main.bundleIdentifier ?? baseBundleID
-        if id.hasSuffix(widgetBundleSuffix) {
-            id.removeLast(widgetBundleSuffix.count)
+        for suffix in extensionBundleSuffixes where id.hasSuffix(suffix) {
+            id.removeLast(suffix.count)
+            break
         }
         return "group." + id
     }
