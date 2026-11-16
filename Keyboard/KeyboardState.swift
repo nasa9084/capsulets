@@ -57,6 +57,9 @@ final class KeyboardState: ObservableObject {
 
     /// 押している最中のキーの表示用
     let flick = FlickModel()
+    /// 絵文字の一覧
+    let emoji = EmojiModel()
+    @Published private(set) var isEmojiVisible = false
     /// 地球儀キーの長押しで出す定型文リスト
     let snippetMenu = SnippetMenuModel()
 
@@ -157,6 +160,26 @@ final class KeyboardState: ObservableObject {
         shift = .off
         symbolPage = 0
         UserDefaults.standard.set(layout.rawValue, forKey: Self.layoutKey)
+    }
+
+    // MARK: - 絵文字
+
+    func openEmoji() {
+        playSound(.function)
+        commitAsIs()
+        emoji.open()
+        isEmojiVisible = true
+    }
+
+    func closeEmoji() {
+        playSound(.function)
+        isEmojiVisible = false
+    }
+
+    func inputEmoji(_ text: String) {
+        playSound(.input)
+        proxy?.insertText(text)
+        emoji.record(text)
     }
 
     // MARK: - QWERTY

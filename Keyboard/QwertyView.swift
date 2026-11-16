@@ -42,9 +42,8 @@ struct QwertyKeys: View {
                 modeKey
                 letterRow(rows[2])
                 if state.tab == .number, state.symbolPage == 0 {
-                    // 絵文字キーボードは直接開けないので、iOS の次のキーボードに切り替える
                     Button {
-                        state.nextKeyboard()
+                        state.openEmoji()
                     } label: {
                         Image(systemName: "face.smiling").font(.system(size: 20))
                     }

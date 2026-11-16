@@ -14,6 +14,27 @@ struct KeyboardView: View {
     static let totalHeight: CGFloat = candidateBarHeight + keyHeight * 4 + spacing * 3 + padding * 2
 
     var body: some View {
+        Group {
+            if state.isEmojiVisible {
+                EmojiPicker(state: state, model: state.emoji)
+            } else {
+                keys
+            }
+        }
+        .frame(height: Self.totalHeight)
+        .coordinateSpace(name: Self.coordinateSpace)
+        .overlay(alignment: .topLeading) {
+            FlickBubble(model: state.flick)
+                .allowsHitTesting(false)
+        }
+        .overlay(alignment: .topLeading) {
+            SnippetMenu(model: state.snippetMenu)
+                .allowsHitTesting(false)
+        }
+    }
+
+    /// 変換候補とキー
+    private var keys: some View {
         VStack(spacing: 0) {
             CandidateBar(state: state)
                 .frame(height: Self.candidateBarHeight)
@@ -32,16 +53,6 @@ struct KeyboardView: View {
                 }
             }
             .padding(Self.padding)
-        }
-        .frame(height: Self.totalHeight)
-        .coordinateSpace(name: Self.coordinateSpace)
-        .overlay(alignment: .topLeading) {
-            FlickBubble(model: state.flick)
-                .allowsHitTesting(false)
-        }
-        .overlay(alignment: .topLeading) {
-            SnippetMenu(model: state.snippetMenu)
-                .allowsHitTesting(false)
         }
     }
 
