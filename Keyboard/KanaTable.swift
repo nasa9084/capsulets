@@ -17,6 +17,14 @@ enum KanaTable {
     static let zero = ["0", "〜", "…", "@", ""]
     static let dots = [".", ",", "-", "/", "_"]
 
+    static let englishRows: [[[String]]] = [
+        [["@", "#", "/", "&", "_"], ["a", "b", "c", "", ""], ["d", "e", "f", "", ""]],
+        [["g", "h", "i", "", ""], ["j", "k", "l", "", ""], ["m", "n", "o", "", ""]],
+        [["p", "q", "r", "s", ""], ["t", "u", "v", "", ""], ["w", "x", "y", "z", ""]],
+    ]
+    static let quotes = ["'", "\"", "(", ")", ""]
+    static let englishPunctuation = [".", ",", "?", "!", ""]
+
     /// 「゛゜小」キーで順に切り替える文字の組
     private static let variants: [[Character]] = [
         "あぁ", "いぃ", "うぅゔ", "えぇ", "おぉ",

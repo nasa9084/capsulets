@@ -7,7 +7,26 @@ import UIKit
 final class KeyboardState: ObservableObject {
     enum Tab {
         case kana
+        case english
         case number
+
+        /// 切り替えキーを押したときの次のタブ（日本語 → 英語 → 数字 → 日本語）
+        var next: Tab {
+            switch self {
+            case .kana: .english
+            case .english: .number
+            case .number: .kana
+            }
+        }
+
+        /// 切り替えキーに出す名前
+        var title: String {
+            switch self {
+            case .kana: "あいう"
+            case .english: "ABC"
+            case .number: "☆123"
+            }
+        }
     }
 
     @Published var tab: Tab = .kana
@@ -87,6 +106,23 @@ final class KeyboardState: ObservableObject {
         playSound(.input)
         commitAsIs()
         proxy?.insertText(snippet.text)
+    }
+
+    func switchTab() {
+        playSound(.function)
+        commitAsIs()
+        tab = tab.next
+    }
+
+    /// 直前の英字の大文字・小文字を切り替える
+    func toggleCaseOfLastCharacter() {
+        playSound(.input)
+        guard !isComposing, let last = proxy?.documentContextBeforeInput?.last, last.isLetter else { return }
+        let lower = String(last).lowercased()
+        let toggled = String(last) == lower ? String(last).uppercased() : lower
+        guard toggled != String(last) else { return }
+        proxy?.deleteBackward()
+        proxy?.insertText(toggled)
     }
 
     /// 直前の文字を「小書き → 濁点 → 半濁点」の順に切り替える

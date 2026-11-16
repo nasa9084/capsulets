@@ -7,7 +7,7 @@ struct KeyboardView: View {
 
     static let coordinateSpace = "keyboard"
 
-    static let candidateBarHeight: CGFloat = 44
+    static let candidateBarHeight: CGFloat = 36
     static let keyHeight: CGFloat = 50
     static let spacing: CGFloat = 6
     static let padding: CGFloat = 4
@@ -43,12 +43,10 @@ struct KeyboardView: View {
 
     private func leftColumn(keyboardWidth: CGFloat) -> some View {
         VStack(spacing: Self.spacing) {
-            FunctionKey(label: .text(state.tab == .kana ? "☆123" : "あいう")) {
-                state.playSound(.function)
-                state.tab = state.tab == .kana ? .number : .kana
-            }
-            FunctionKey(label: .symbol("arrow.left")) { state.moveCursor(-1) }
             FunctionKey(label: .symbol("keyboard.chevron.compact.down")) { state.dismissKeyboard() }
+            FunctionKey(label: .symbol("arrow.left")) { state.moveCursor(-1) }
+            // 押すと切り替わる先のタブ名を出す
+            FunctionKey(label: .text(state.tab.next.title)) { state.switchTab() }
             GlobeKey(
                 menu: state.snippetMenu,
                 keyboardWidth: keyboardWidth,
@@ -73,6 +71,17 @@ struct KeyboardView: View {
                     FlickKey(labels: KanaTable.wa, flick: state.flick) { state.inputKana($0) }
                     FlickKey(labels: KanaTable.punctuation, title: "、。?!", flick: state.flick) { state.inputKana($0) }
                 }
+            case .english:
+                ForEach(0..<3, id: \.self) { row in
+                    keyRow(KanaTable.englishRows[row], showsAllLabels: true) { state.inputDirect($0) }
+                }
+                HStack(spacing: Self.spacing) {
+                    TapKey(label: "a/A") { state.toggleCaseOfLastCharacter() }
+                    FlickKey(labels: KanaTable.quotes, title: "'\"()", flick: state.flick) { state.inputDirect($0) }
+                    FlickKey(labels: KanaTable.englishPunctuation, title: ".,?!", flick: state.flick) {
+                        state.inputDirect($0)
+                    }
+                }
             case .number:
                 ForEach(0..<3, id: \.self) { row in
                     keyRow(KanaTable.numberRows[row]) { state.inputDirect($0) }
@@ -86,10 +95,15 @@ struct KeyboardView: View {
         }
     }
 
-    private func keyRow(_ keys: [[String]], action: @escaping (String) -> Void) -> some View {
+    /// showsAllLabels: キーに全方向の文字を並べて出す（英字の "abc" など）
+    private func keyRow(
+        _ keys: [[String]], showsAllLabels: Bool = false, action: @escaping (String) -> Void
+    ) -> some View {
         HStack(spacing: Self.spacing) {
             ForEach(keys, id: \.self) { labels in
-                FlickKey(labels: labels, flick: state.flick, action: action)
+                FlickKey(
+                    labels: labels, title: showsAllLabels ? labels.joined() : nil, flick: state.flick, action: action
+                )
             }
         }
     }

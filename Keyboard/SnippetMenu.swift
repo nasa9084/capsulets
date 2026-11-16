@@ -122,7 +122,7 @@ struct GlobeKey: View {
                 .onChanged { value in
                     if !isPressed {
                         isPressed = true
-                        timer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { _ in
+                        timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: false) { _ in
                             menu.show(keyboardWidth: keyboardWidth)
                             onMenuOpen()
                         }
