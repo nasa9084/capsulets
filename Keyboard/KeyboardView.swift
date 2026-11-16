@@ -213,7 +213,7 @@ struct FlickKey: View {
     let action: (String) -> Void
 
     /// これ以上指を動かしたらフリックとみなす距離
-    static let threshold: CGFloat = 10
+    static let threshold: CGFloat = 16
 
     var body: some View {
         GeometryReader { geometry in
