@@ -11,6 +11,8 @@ final class KeyboardViewController: UIInputViewController {
 
         let host = UIHostingController(rootView: KeyboardView(state: state))
         host.view.backgroundColor = .clear
+        // iOS がキーボードの上端に取る余白（セーフエリア）の分、中身が下がらないようにする
+        host.safeAreaRegions = []
         host.view.translatesAutoresizingMaskIntoConstraints = false
         addChild(host)
         view.addSubview(host.view)

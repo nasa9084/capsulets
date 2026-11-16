@@ -7,7 +7,7 @@ struct KeyboardView: View {
 
     static let coordinateSpace = "keyboard"
 
-    static let candidateBarHeight: CGFloat = 36
+    static let candidateBarHeight: CGFloat = 32
     static let keyHeight: CGFloat = 50
     static let spacing: CGFloat = 6
     static let padding: CGFloat = 4
