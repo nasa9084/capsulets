@@ -95,10 +95,19 @@ struct KeyboardView: View {
                 }
             case .english:
                 ForEach(0..<3, id: \.self) { row in
-                    keyRow(KanaTable.englishRows[row], showsAllLabels: true) { state.inputDirect($0) }
+                    // シフト中はキーの文字ごと大文字にする（押している間の表示も大文字になる）
+                    let keys = KanaTable.englishRows[row].map { labels in
+                        state.shift == .off ? labels : labels.map { $0.uppercased() }
+                    }
+                    keyRow(keys, showsAllLabels: true) { state.inputFlickEnglish($0) }
                 }
                 HStack(spacing: Self.spacing) {
-                    TapKey(label: "a/A") { state.toggleCaseOfLastCharacter() }
+                    Button {
+                        state.toggleShift()
+                    } label: {
+                        Image(systemName: shiftSymbol).font(.system(size: 20))
+                    }
+                    .buttonStyle(KeyButtonStyle(color: KeyColor.normal, pressedColor: KeyColor.pressed))
                     FlickKey(labels: KanaTable.quotes, title: "'\"()", flick: state.flick) { state.inputDirect($0) }
                     FlickKey(labels: KanaTable.englishPunctuation, title: ".,?!", flick: state.flick) {
                         state.inputDirect($0)
@@ -116,6 +125,14 @@ struct KeyboardView: View {
                     FlickKey(labels: KanaTable.dots, title: ".,-/", flick: state.flick) { state.inputDirect($0) }
                 }
             }
+        }
+    }
+
+    private var shiftSymbol: String {
+        switch state.shift {
+        case .off: "shift"
+        case .once: "shift.fill"
+        case .locked: "capslock.fill"
         }
     }
 

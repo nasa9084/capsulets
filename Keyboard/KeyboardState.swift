@@ -62,6 +62,10 @@ final class KeyboardState: ObservableObject {
     /// 打ちかけの英単語
     private var englishWord = ""
     private var didInsertSpaceAfterCompletion = false
+    /// 「:」のあとに打っている絵文字の名前（nil は打っていない）
+    private var emojiQuery: String?
+    /// 候補バーに出している、名前に合う絵文字
+    private var emojiMatches: [EmojiNames.Entry] = []
     private let textChecker = UITextChecker()
 
     /// 候補バーに出す文字。入力中は変換候補、そうでなければ英単語の補完
@@ -142,9 +146,23 @@ final class KeyboardState: ObservableObject {
     /// 数字・記号など、そのまま入れる文字
     func inputDirect(_ text: String) {
         playSound(.input)
-        resetCompletion()
+        resetCompletion(keepsEmojiQuery: true)
         commitAsIs()
+        if replaceEmojiName(closingWith: text) {
+            return
+        }
         proxy?.insertText(text)
+        if emojiQuery != nil || !emojiMatches.isEmpty {
+            updateCompletions()
+        }
+    }
+
+    /// フリックの英字キー。シフト中の大文字はキーの側で付けてあるので、そのまま入れてシフトを戻す
+    func inputFlickEnglish(_ text: String) {
+        inputDirect(text)
+        if shift == .once {
+            shift = .off
+        }
     }
 
     /// 定型文を入れる。入力中なら、ひらがなのまま確定してから入れる
@@ -167,7 +185,8 @@ final class KeyboardState: ObservableObject {
 
     func switchTab() {
         playSound(.function)
-        resetCompletion()
+        // 「:」と名前でページを行き来するので、絵文字の名前の入力は続ける
+        resetCompletion(keepsEmojiQuery: true)
         commitAsIs()
         tab = nextTab
         shift = .off
@@ -235,6 +254,17 @@ final class KeyboardState: ObservableObject {
     func tapCompletion(_ index: Int) {
         guard completions.indices.contains(index) else { return }
         playSound(.function)
+        if emojiMatches.indices.contains(index), let query = emojiQuery {
+            // 「:名前」を絵文字に置き換える
+            let emoji = emojiMatches[index].emoji
+            for _ in 0..<(query.count + 1) {
+                proxy?.deleteBackward()
+            }
+            proxy?.insertText(emoji)
+            self.emoji.record(emoji)
+            resetCompletion()
+            return
+        }
         let completion = completions[index]
         for _ in 0..<englishWord.count {
             proxy?.deleteBackward()
@@ -244,7 +274,11 @@ final class KeyboardState: ObservableObject {
         didInsertSpaceAfterCompletion = true
     }
 
-    private func resetCompletion() {
+    private func resetCompletion(keepsEmojiQuery: Bool = false) {
+        if !keepsEmojiQuery {
+            emojiQuery = nil
+            emojiMatches = []
+        }
         englishWord = ""
         didInsertSpaceAfterCompletion = false
         if !completions.isEmpty {
@@ -254,6 +288,16 @@ final class KeyboardState: ObservableObject {
 
     /// iOS の辞書から、打ちかけの単語の続きと、つづり間違いの直し方の候補を取る
     private func updateCompletions() {
+        // 「:名前」を打っている間は、名前に合う絵文字を出す
+        if let query = emojiQuery, query.count >= 2 {
+            emojiMatches = EmojiNames.search(query, limit: 40)
+                .filter { EmojiModel.isSupported($0.emoji) }
+                .prefix(20)
+                .map { $0 }
+            completions = emojiMatches.map { "\($0.emoji) \($0.name)" }
+            return
+        }
+        emojiMatches = []
         guard !englishWord.isEmpty else {
             completions = []
             return
@@ -276,6 +320,34 @@ final class KeyboardState: ObservableObject {
             .filter { $0 != word && seen.insert($0).inserted }
             .prefix(12)
             .map { String($0) }
+    }
+
+    // MARK: - 絵文字の名前入力（:thinking_face:）
+
+    /// 「:」のあとに打った文字を覚える。閉じの「:」で名前がぴったり合えば、絵文字に置き換えて true を返す
+    private func replaceEmojiName(closingWith text: String) -> Bool {
+        if text == ":" {
+            if let query = emojiQuery, let emoji = EmojiNames.emoji(named: query), EmojiModel.isSupported(emoji) {
+                for _ in 0..<(query.count + 1) {
+                    proxy?.deleteBackward()
+                }
+                proxy?.insertText(emoji)
+                self.emoji.record(emoji)
+                resetCompletion()
+                return true
+            }
+            emojiQuery = ""
+            return false
+        }
+        guard let query = emojiQuery else { return false }
+        let lowered = text.lowercased()
+        let isNameCharacter = lowered.count == 1 && lowered.unicodeScalars.allSatisfy {
+            ("a"..."z").contains($0) || ("0"..."9").contains($0) || $0 == "_" || $0 == "+" || $0 == "-"
+        }
+        // 「12:30」のような時刻で候補を出さないよう、数字で始まる名前は対象にしない
+        let startsWithDigit = query.isEmpty && lowered.first?.isNumber == true
+        emojiQuery = isNameCharacter && !startsWithDigit ? query + lowered : nil
+        return false
     }
 
     /// カーソルの直前にある英字の並びを、打ちかけの単語として読み直す
@@ -305,17 +377,6 @@ final class KeyboardState: ObservableObject {
         symbolPage = symbolPage == 0 ? 1 : 0
     }
 
-    /// 直前の英字の大文字・小文字を切り替える
-    func toggleCaseOfLastCharacter() {
-        playSound(.input)
-        guard !isComposing, let last = proxy?.documentContextBeforeInput?.last, last.isLetter else { return }
-        let lower = String(last).lowercased()
-        let toggled = String(last) == lower ? String(last).uppercased() : lower
-        guard toggled != String(last) else { return }
-        proxy?.deleteBackward()
-        proxy?.insertText(toggled)
-    }
-
     /// 直前の文字を「小書き → 濁点 → 半濁点」の順に切り替える
     func modifyLastCharacter() {
         playSound(.input)
@@ -333,6 +394,11 @@ final class KeyboardState: ObservableObject {
         guard isComposing else {
             proxy?.deleteBackward()
             didInsertSpaceAfterCompletion = false
+            if let query = emojiQuery {
+                // 名前を 1 文字戻す。「:」まで消したら名前の入力をやめる
+                emojiQuery = query.isEmpty ? nil : String(query.dropLast())
+                updateCompletions()
+            }
             if layout == .qwerty, tab == .english {
                 if englishWord.isEmpty {
                     // 打ちかけの単語を見失っているので、入力欄から読み直す

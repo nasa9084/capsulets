@@ -101,7 +101,7 @@ final class EmojiModel: ObservableObject {
 
     /// この iOS で 1 文字の絵文字として表示できるか。
     /// 新しい絵文字は、古い iOS では複数の絵文字に分かれたり「?」になったりするので外す
-    private static func isSupported(_ emoji: String) -> Bool {
+    static func isSupported(_ emoji: String) -> Bool {
         let text = NSAttributedString(string: emoji, attributes: [.font: UIFont.systemFont(ofSize: 20)])
         let line = CTLineCreateWithAttributedString(text)
         guard CTLineGetGlyphCount(line) == 1,
