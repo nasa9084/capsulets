@@ -30,6 +30,9 @@ struct QwertyKeys: View {
         ],
     ]
 
+    /// 「.」キーのフリック。[中央, 左, 上, 右, 下]
+    private static let periodFlicks = [".", ",", ":", "", ";"]
+
     private var rows: [[String]] {
         state.tab == .number ? Self.symbols[state.symbolPage] : Self.letters
     }
@@ -90,9 +93,18 @@ struct QwertyKeys: View {
     private func letterRow(_ keys: [String]) -> some View {
         HStack(spacing: spacing) {
             ForEach(keys, id: \.self) { key in
-                let label = state.shift == .off ? key : key.uppercased()
-                LetterKey(label: label, flick: state.flick) { state.inputQwerty(key) }
+                if key == ".", state.tab != .number {
+                    // 英字のページの「.」だけ、フリックでよく使う記号を打てる。
+                    // 右端のキーなので、右フリックは使わない（伸びた表示が画面の外に出る）
+                    FlickKey(labels: Self.periodFlicks, showsFlickHints: true, flick: state.flick) {
+                        state.inputQwerty($0)
+                    }
                     .frame(width: unit)
+                } else {
+                    let label = state.shift == .off ? key : key.uppercased()
+                    LetterKey(label: label, flick: state.flick) { state.inputQwerty(key) }
+                        .frame(width: unit)
+                }
             }
         }
     }
