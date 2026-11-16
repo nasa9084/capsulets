@@ -10,15 +10,6 @@ final class KeyboardState: ObservableObject {
         case english
         case number
 
-        /// 切り替えキーを押したときの次のタブ（日本語 → 英語 → 数字 → 日本語）
-        var next: Tab {
-            switch self {
-            case .kana: .english
-            case .english: .number
-            case .number: .kana
-            }
-        }
-
         /// 切り替えキーに出す名前
         var title: String {
             switch self {
@@ -53,6 +44,13 @@ final class KeyboardState: ObservableObject {
     @Published private(set) var shift: Shift = .off
     /// QWERTY の数字記号のページ（0: 数字, 1: 記号）
     @Published private(set) var symbolPage = 0
+
+    init() {
+        // QWERTY には日本語がないので、英語から始める
+        if layout == .qwerty {
+            tab = .english
+        }
+    }
     @Published var needsGlobeKey = false
     @Published private(set) var candidates: [Candidate] = []
     @Published private(set) var isComposing = false
@@ -131,10 +129,20 @@ final class KeyboardState: ObservableObject {
         proxy?.insertText(snippet.text)
     }
 
+    /// 切り替えキーを押したときの次のタブ。
+    /// フリックは 日本語 → 英語 → 数字 → 日本語、QWERTY は日本語がなく 英語 ⇄ 数字
+    var nextTab: Tab {
+        switch tab {
+        case .kana: .english
+        case .english: .number
+        case .number: layout == .flick ? .kana : .english
+        }
+    }
+
     func switchTab() {
         playSound(.function)
         commitAsIs()
-        tab = tab.next
+        tab = nextTab
         shift = .off
         symbolPage = 0
     }
@@ -144,6 +152,8 @@ final class KeyboardState: ObservableObject {
         playSound(.function)
         commitAsIs()
         layout = layout == .flick ? .qwerty : .flick
+        // QWERTY は英語から、フリックは日本語から始める
+        tab = layout == .flick ? .kana : .english
         shift = .off
         symbolPage = 0
         UserDefaults.standard.set(layout.rawValue, forKey: Self.layoutKey)
@@ -151,18 +161,9 @@ final class KeyboardState: ObservableObject {
 
     // MARK: - QWERTY
 
-    /// QWERTY の文字キー。日本語ではローマ字入力、英語と数字記号ではそのまま入れる
+    /// QWERTY の文字キー。打った文字をそのまま入れる
     func inputQwerty(_ key: String) {
-        let text = shift == .off ? key : key.uppercased()
-        if tab == .kana {
-            playSound(.input)
-            // シフト中の文字（大文字）や「ー」は、かなに変換せずそのまま入力中の文字に足す
-            let isRoman = shift == .off && key.first?.isASCII == true
-            composing.insertAtCursorPosition(text, inputStyle: isRoman ? .roman2kana : .direct)
-            refresh()
-        } else {
-            inputDirect(text)
-        }
+        inputDirect(shift == .off ? key : key.uppercased())
         if shift == .once {
             shift = .off
         }
@@ -337,12 +338,7 @@ final class KeyboardState: ObservableObject {
     /// 変換せず、ひらがなのまま確定する
     func commitAsIs() {
         guard isComposing else { return }
-        var text = composing.convertTarget
-        // ローマ字入力で最後に残った "n" は「ん」にする
-        if text.hasSuffix("n") {
-            text = text.dropLast() + "ん"
-        }
-        showMarkedText(text)
+        showMarkedText(composing.convertTarget)
         proxy?.unmarkText()
         finishComposition()
     }

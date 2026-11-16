@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// QWERTY 配列のキー。日本語（ローマ字入力）・英語・数字記号の 3 つを切り替えて使う
+/// QWERTY 配列のキー。英語と数字記号を切り替えて使う（日本語入力はフリック配列で行う）
 struct QwertyKeys: View {
     @ObservedObject var state: KeyboardState
     /// キーを並べる領域の幅
@@ -31,15 +31,7 @@ struct QwertyKeys: View {
     ]
 
     private var rows: [[String]] {
-        switch state.tab {
-        case .kana:
-            // ローマ字入力では長音をよく使うので、2 段目の右端に置く
-            [Self.letters[0], Self.letters[1] + ["ー"], Self.letters[2]]
-        case .english:
-            Self.letters
-        case .number:
-            Self.symbols[state.symbolPage]
-        }
+        state.tab == .number ? Self.symbols[state.symbolPage] : Self.letters
     }
 
     var body: some View {
@@ -58,7 +50,7 @@ struct QwertyKeys: View {
             }
             HStack(spacing: spacing) {
                 // 押すと切り替わる先のタブ名を出す
-                FunctionKey(label: .text(state.tab.next.title)) { state.switchTab() }
+                FunctionKey(label: .text(state.nextTab.title)) { state.switchTab() }
                     .frame(width: bottomSideWidth)
                 GlobeKey(
                     menu: state.snippetMenu,
@@ -69,9 +61,11 @@ struct QwertyKeys: View {
                     onSelect: { state.insertSnippet($0) }
                 )
                 .frame(width: bottomSideWidth)
-                punctuationKey(japanese: "、", other: ",")
+                LetterKey(label: ",", flick: state.flick) { state.inputDirect(",") }
+                    .frame(width: unit)
                 FunctionKey(label: .text("空白")) { state.space() }
-                punctuationKey(japanese: "。", other: ".")
+                LetterKey(label: ".", flick: state.flick) { state.inputDirect(".") }
+                    .frame(width: unit)
                 FunctionKey(label: .text(state.isComposing ? "確定" : "改行"), isProminent: state.isComposing) {
                     state.enter()
                 }
@@ -88,18 +82,6 @@ struct QwertyKeys: View {
                     .frame(width: unit)
             }
         }
-    }
-
-    private func punctuationKey(japanese: String, other: String) -> some View {
-        let text = state.tab == .kana ? japanese : other
-        return LetterKey(label: text, flick: state.flick) {
-            if state.tab == .kana {
-                state.inputKana(text)
-            } else {
-                state.inputDirect(text)
-            }
-        }
-        .frame(width: unit)
     }
 
     /// 3 段目の左端。文字のときはシフト、数字記号のときは記号のページ切り替え

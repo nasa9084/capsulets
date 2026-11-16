@@ -52,7 +52,7 @@ struct KeyboardView: View {
             FunctionKey(label: .symbol("keyboard.chevron.compact.down")) { state.dismissKeyboard() }
             FunctionKey(label: .symbol("arrow.left")) { state.moveCursor(-1) }
             // 押すと切り替わる先のタブ名を出す
-            FunctionKey(label: .text(state.tab.next.title)) { state.switchTab() }
+            FunctionKey(label: .text(state.nextTab.title)) { state.switchTab() }
             GlobeKey(
                 menu: state.snippetMenu,
                 keyboardWidth: keyboardWidth,
