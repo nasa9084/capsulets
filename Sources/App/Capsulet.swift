@@ -54,6 +54,9 @@ enum CapsuletRegistry {
         Capsulet(id: "keyboard", title: "キーボード", systemImage: "keyboard") {
             KeyboardGuideView()
         },
+        Capsulet(id: "locationLog", title: "足あと", systemImage: "point.topleft.down.to.point.bottomright.curvepath") {
+            LocationLogView()
+        },
     ]
 
     static func capsulet(id: String) -> Capsulet? {

@@ -2,6 +2,11 @@ import SwiftUI
 
 @main
 struct CapsuletsApp: App {
+    init() {
+        // 位置の記録を再開する。iOS が位置の通知のために裏で起動したときも、ここを通る
+        LocationRecorder.shared.start()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()
