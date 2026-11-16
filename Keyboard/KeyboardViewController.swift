@@ -24,6 +24,8 @@ final class KeyboardViewController: UIInputViewController {
         ])
         host.didMove(toParent: self)
 
+        // 高さは自分で決める（iOS の既定の高さに引き伸ばされないようにする）
+        (view as? UIInputView)?.allowsSelfSizing = true
         let height = view.heightAnchor.constraint(equalToConstant: KeyboardView.totalHeight)
         height.priority = UILayoutPriority(999)
         height.isActive = true

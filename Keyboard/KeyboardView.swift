@@ -31,6 +31,8 @@ struct KeyboardView: View {
             SnippetMenu(model: state.snippetMenu)
                 .allowsHitTesting(false)
         }
+        // iOS がキーボードを指定より高くしたときも、上にすき間を作らず上端にそろえる
+        .frame(maxHeight: .infinity, alignment: .top)
     }
 
     /// 変換候補とキー
