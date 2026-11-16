@@ -84,11 +84,13 @@ struct KeyboardView: View {
                 }
             case .number:
                 ForEach(0..<3, id: \.self) { row in
-                    keyRow(KanaTable.numberRows[row]) { state.inputDirect($0) }
+                    keyRow(KanaTable.numberRows[row], showsFlickHints: true) { state.inputDirect($0) }
                 }
                 HStack(spacing: Self.spacing) {
                     FlickKey(labels: KanaTable.brackets, title: "()[]", flick: state.flick) { state.inputDirect($0) }
-                    FlickKey(labels: KanaTable.zero, flick: state.flick) { state.inputDirect($0) }
+                    FlickKey(labels: KanaTable.zero, showsFlickHints: true, flick: state.flick) {
+                        state.inputDirect($0)
+                    }
                     FlickKey(labels: KanaTable.dots, title: ".,-/", flick: state.flick) { state.inputDirect($0) }
                 }
             }
@@ -97,12 +99,14 @@ struct KeyboardView: View {
 
     /// showsAllLabels: キーに全方向の文字を並べて出す（英字の "abc" など）
     private func keyRow(
-        _ keys: [[String]], showsAllLabels: Bool = false, action: @escaping (String) -> Void
+        _ keys: [[String]], showsAllLabels: Bool = false, showsFlickHints: Bool = false,
+        action: @escaping (String) -> Void
     ) -> some View {
         HStack(spacing: Self.spacing) {
             ForEach(keys, id: \.self) { labels in
                 FlickKey(
-                    labels: labels, title: showsAllLabels ? labels.joined() : nil, flick: state.flick, action: action
+                    labels: labels, title: showsAllLabels ? labels.joined() : nil,
+                    showsFlickHints: showsFlickHints, flick: state.flick, action: action
                 )
             }
         }
@@ -223,6 +227,8 @@ struct FlickKey: View {
     let labels: [String]
     /// キーに出す文字（省略すると中央の文字）
     var title: String?
+    /// 中央の文字の下に、フリックで入る文字を小さく並べて出す
+    var showsFlickHints = false
     let flick: FlickModel
     let action: (String) -> Void
 
@@ -232,8 +238,19 @@ struct FlickKey: View {
     var body: some View {
         GeometryReader { geometry in
             KeyFace(color: KeyColor.normal) {
-                Text(title ?? labels[0])
-                    .font(.system(size: title == nil ? 22 : 17))
+                if showsFlickHints {
+                    VStack(spacing: 0) {
+                        Text(labels[0])
+                            .font(.system(size: 22))
+                        Text(labels.dropFirst().joined(separator: " "))
+                            .font(.system(size: 10))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+                } else {
+                    Text(title ?? labels[0])
+                        .font(.system(size: title == nil ? 22 : 17))
+                }
             }
             .foregroundStyle(Color.primary)
             .gesture(
