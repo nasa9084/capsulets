@@ -40,6 +40,8 @@ struct KeyboardView: View {
         VStack(spacing: 0) {
             CandidateBar(state: state)
                 .frame(height: Self.candidateBarHeight)
+                // 背景を塗って、iOS が描くキーボードの外枠（上の角が丸い）を候補バーの後ろに隠す
+                .background(Color(uiColor: .systemBackground))
             GeometryReader { geometry in
                 switch state.layout {
                 case .flick:
