@@ -57,6 +57,26 @@ final class KeyboardState: ObservableObject {
 
     /// 押している最中のキーの表示用
     let flick = FlickModel()
+    /// 英単語の補完の候補（QWERTY の英字で、単語を打っている間だけ出す）
+    @Published private(set) var completions: [String] = []
+    /// 打ちかけの英単語
+    private var englishWord = ""
+    private var didInsertSpaceAfterCompletion = false
+    private let textChecker = UITextChecker()
+
+    /// 候補バーに出す文字。入力中は変換候補、そうでなければ英単語の補完
+    var barItems: [String] {
+        isComposing ? candidates.map(\.text) : completions
+    }
+
+    func tapBarItem(_ index: Int) {
+        if isComposing {
+            tapCandidate(index)
+        } else {
+            tapCompletion(index)
+        }
+    }
+
     /// 絵文字の一覧
     let emoji = EmojiModel()
     @Published private(set) var isEmojiVisible = false
@@ -114,6 +134,7 @@ final class KeyboardState: ObservableObject {
     /// かな・句読点など、変換の対象になる文字
     func inputKana(_ text: String) {
         playSound(.input)
+        resetCompletion()
         composing.insertAtCursorPosition(text, inputStyle: .direct)
         refresh()
     }
@@ -121,6 +142,7 @@ final class KeyboardState: ObservableObject {
     /// 数字・記号など、そのまま入れる文字
     func inputDirect(_ text: String) {
         playSound(.input)
+        resetCompletion()
         commitAsIs()
         proxy?.insertText(text)
     }
@@ -128,6 +150,7 @@ final class KeyboardState: ObservableObject {
     /// 定型文を入れる。入力中なら、ひらがなのまま確定してから入れる
     func insertSnippet(_ snippet: Snippet) {
         playSound(.input)
+        resetCompletion()
         commitAsIs()
         proxy?.insertText(snippet.text)
     }
@@ -144,6 +167,7 @@ final class KeyboardState: ObservableObject {
 
     func switchTab() {
         playSound(.function)
+        resetCompletion()
         commitAsIs()
         tab = nextTab
         shift = .off
@@ -153,6 +177,7 @@ final class KeyboardState: ObservableObject {
     /// フリックと QWERTY を切り替える
     func toggleLayout() {
         playSound(.function)
+        resetCompletion()
         commitAsIs()
         layout = layout == .flick ? .qwerty : .flick
         // QWERTY は英語から、フリックは日本語から始める
@@ -166,6 +191,7 @@ final class KeyboardState: ObservableObject {
 
     func openEmoji() {
         playSound(.function)
+        resetCompletion()
         commitAsIs()
         emoji.open()
         isEmojiVisible = true
@@ -178,6 +204,7 @@ final class KeyboardState: ObservableObject {
 
     func inputEmoji(_ text: String) {
         playSound(.input)
+        resetCompletion()
         proxy?.insertText(text)
         emoji.record(text)
     }
@@ -186,9 +213,80 @@ final class KeyboardState: ObservableObject {
 
     /// QWERTY の文字キー。打った文字をそのまま入れる
     func inputQwerty(_ key: String) {
-        inputDirect(shift == .off ? key : key.uppercased())
+        let text = shift == .off ? key : key.uppercased()
+        let word = englishWord
+        // 補完で入れた空白のすぐあとに句読点を打ったら、空白を取り除く（"word ." にしない）
+        if didInsertSpaceAfterCompletion, ".,?!:;".contains(key) {
+            proxy?.deleteBackward()
+        }
+        inputDirect(text)
+        if tab == .english, key.first?.isLetter == true {
+            englishWord = word + text
+            updateCompletions()
+        }
         if shift == .once {
             shift = .off
+        }
+    }
+
+    // MARK: - 英単語の補完（QWERTY の英字）
+
+    /// 補完の候補をタップしたとき。打ちかけの単語を候補に置き換えて、空白を入れる
+    func tapCompletion(_ index: Int) {
+        guard completions.indices.contains(index) else { return }
+        playSound(.function)
+        let completion = completions[index]
+        for _ in 0..<englishWord.count {
+            proxy?.deleteBackward()
+        }
+        proxy?.insertText(completion + " ")
+        resetCompletion()
+        didInsertSpaceAfterCompletion = true
+    }
+
+    private func resetCompletion() {
+        englishWord = ""
+        didInsertSpaceAfterCompletion = false
+        if !completions.isEmpty {
+            completions = []
+        }
+    }
+
+    /// iOS の辞書から、打ちかけの単語の続きと、つづり間違いの直し方の候補を取る
+    private func updateCompletions() {
+        guard !englishWord.isEmpty else {
+            completions = []
+            return
+        }
+        let word = englishWord
+        let range = NSRange(location: 0, length: (word as NSString).length)
+        var results = textChecker.completions(forPartialWordRange: range, in: word, language: "en_US") ?? []
+        let misspelled = textChecker.rangeOfMisspelledWord(
+            in: word, range: range, startingAt: 0, wrap: false, language: "en_US"
+        )
+        if misspelled.location != NSNotFound {
+            results += textChecker.guesses(forWordRange: range, in: word, language: "en_US") ?? []
+        }
+        // 打った文字の大文字・小文字に合わせる
+        let isAllUppercase = word.count > 1 && word == word.uppercased()
+        let isCapitalized = word.first?.isUppercase == true
+        var seen = Set<String>()
+        completions = results
+            .map { isAllUppercase ? $0.uppercased() : isCapitalized ? $0.prefix(1).uppercased() + $0.dropFirst() : $0 }
+            .filter { $0 != word && seen.insert($0).inserted }
+            .prefix(12)
+            .map { String($0) }
+    }
+
+    /// カーソルの直前にある英字の並びを、打ちかけの単語として読み直す
+    private func reloadEnglishWord() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            guard let self, !self.isComposing, self.layout == .qwerty, self.tab == .english,
+                  let before = self.proxy?.documentContextBeforeInput
+            else { return }
+            let letters = before.reversed().prefix { $0.isASCII && $0.isLetter }
+            self.englishWord = String(letters.reversed())
+            self.updateCompletions()
         }
     }
 
@@ -234,6 +332,16 @@ final class KeyboardState: ObservableObject {
         playSound(.delete)
         guard isComposing else {
             proxy?.deleteBackward()
+            didInsertSpaceAfterCompletion = false
+            if layout == .qwerty, tab == .english {
+                if englishWord.isEmpty {
+                    // 打ちかけの単語を見失っているので、入力欄から読み直す
+                    reloadEnglishWord()
+                } else {
+                    englishWord.removeLast()
+                    updateCompletions()
+                }
+            }
             return
         }
         composing.deleteBackwardFromCursorPosition(count: 1)
@@ -249,6 +357,7 @@ final class KeyboardState: ObservableObject {
     /// カーソルから行頭までを削除する。入力中は、入力中の文字をすべて消す
     func deleteToLineStart() {
         playSound(.delete)
+        resetCompletion()
         if isComposing {
             showMarkedText("")
             proxy?.unmarkText()
@@ -284,6 +393,7 @@ final class KeyboardState: ObservableObject {
     /// カーソルから行末までを削除する。すでに行末なら、次の改行を 1 つ消す
     func deleteToLineEnd() {
         playSound(.delete)
+        resetCompletion()
         guard !isComposing, let proxy, let after = proxy.documentContextAfterInput, !after.isEmpty else { return }
         let line = after.split(separator: "\n", omittingEmptySubsequences: false).first ?? ""
         let target = line.isEmpty ? "\n" : String(line)
@@ -302,6 +412,7 @@ final class KeyboardState: ObservableObject {
     /// 空白を入れる。入力中なら、ひらがなのまま確定してから入れる
     func space() {
         playSound(.function)
+        resetCompletion()
         commitAsIs()
         proxy?.insertText(" ")
     }
@@ -309,6 +420,7 @@ final class KeyboardState: ObservableObject {
     /// 入力中は「確定」、そうでなければ改行
     func enter() {
         playSound(.function)
+        resetCompletion()
         guard isComposing else {
             proxy?.insertText("\n")
             return
@@ -319,6 +431,7 @@ final class KeyboardState: ObservableObject {
     /// カーソルを動かす。入力中は、変換する範囲（先頭からカーソルまで）を縮めたり伸ばしたりする
     func moveCursor(_ offset: Int) {
         playSound(.function)
+        resetCompletion()
         guard isComposing else {
             proxy?.adjustTextPosition(byCharacterOffset: offset)
             return
@@ -336,12 +449,14 @@ final class KeyboardState: ObservableObject {
 
     func nextKeyboard() {
         playSound(.function)
+        resetCompletion()
         commitAsIs()
         controller?.advanceToNextInputMode()
     }
 
     func dismissKeyboard() {
         playSound(.function)
+        resetCompletion()
         commitAsIs()
         controller?.dismissKeyboard()
     }

@@ -158,11 +158,11 @@ struct CandidateBar: View {
         ScrollViewReader { reader in
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 0) {
-                    ForEach(Array(state.candidates.enumerated()), id: \.offset) { index, candidate in
+                    ForEach(Array(state.barItems.enumerated()), id: \.offset) { index, item in
                         Button {
-                            state.tapCandidate(index)
+                            state.tapBarItem(index)
                         } label: {
-                            Text(candidate.text)
+                            Text(item)
                                 .font(.system(size: 18))
                                 .foregroundStyle(Color.primary)
                                 .lineLimit(1)
@@ -175,7 +175,7 @@ struct CandidateBar: View {
                 }
                 .padding(.horizontal, 4)
             }
-            .onChange(of: state.candidates.first?.text) { _, _ in
+            .onChange(of: state.barItems.first) { _, _ in
                 // 候補が変わったら先頭に戻す
                 reader.scrollTo(0, anchor: .leading)
             }
