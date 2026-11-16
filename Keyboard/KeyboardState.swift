@@ -148,10 +148,8 @@ final class KeyboardState: ObservableObject {
         playSound(.input)
         resetCompletion(keepsEmojiQuery: true)
         commitAsIs()
-        if replaceEmojiName(closingWith: text) {
-            return
-        }
         proxy?.insertText(text)
+        trackEmojiName(text)
         if emojiQuery != nil || !emojiMatches.isEmpty {
             updateCompletions()
         }
@@ -324,22 +322,15 @@ final class KeyboardState: ObservableObject {
 
     // MARK: - 絵文字の名前入力（:thinking_face:）
 
-    /// 「:」のあとに打った文字を覚える。閉じの「:」で名前がぴったり合えば、絵文字に置き換えて true を返す
-    private func replaceEmojiName(closingWith text: String) -> Bool {
+    /// 「:」のあとに打った文字を覚えて、候補バーに名前の合う絵文字を出せるようにする。
+    /// 変換は候補のタップだけで行い、閉じの「:」では変換しない
+    private func trackEmojiName(_ text: String) {
         if text == ":" {
-            if let query = emojiQuery, let emoji = EmojiNames.emoji(named: query), EmojiModel.isSupported(emoji) {
-                for _ in 0..<(query.count + 1) {
-                    proxy?.deleteBackward()
-                }
-                proxy?.insertText(emoji)
-                self.emoji.record(emoji)
-                resetCompletion()
-                return true
-            }
-            emojiQuery = ""
-            return false
+            // 名前を打ったあとの「:」は閉じなので終わり。そうでなければ名前の始まり
+            emojiQuery = (emojiQuery ?? "").isEmpty ? "" : nil
+            return
         }
-        guard let query = emojiQuery else { return false }
+        guard let query = emojiQuery else { return }
         let lowered = text.lowercased()
         let isNameCharacter = lowered.count == 1 && lowered.unicodeScalars.allSatisfy {
             ("a"..."z").contains($0) || ("0"..."9").contains($0) || $0 == "_" || $0 == "+" || $0 == "-"
@@ -347,7 +338,6 @@ final class KeyboardState: ObservableObject {
         // 「12:30」のような時刻で候補を出さないよう、数字で始まる名前は対象にしない
         let startsWithDigit = query.isEmpty && lowered.first?.isNumber == true
         emojiQuery = isNameCharacter && !startsWithDigit ? query + lowered : nil
-        return false
     }
 
     /// カーソルの直前にある英字の並びを、打ちかけの単語として読み直す
