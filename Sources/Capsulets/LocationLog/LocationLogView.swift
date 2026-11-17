@@ -171,29 +171,42 @@ struct PlaceSearchView: View {
     /// nil はまだ探していない
     @State private var results: [DateInterval]?
 
+    /// 地図の縦 1 pt が何 m か（範囲の円の大きさを決めるのに使う）
+    @State private var metersPerPoint: Double?
+
     private static let radiusChoices: [Double] = [100, 200, 500, 1000]
+    private static let mapHeight: CGFloat = 300
 
     var body: some View {
         VStack(spacing: 0) {
+            // 探す範囲の円は、地図の中身としてではなく上に重ねて描く。
+            // 地図の中身に入れると「円が動く → 地図が円に合わせて動く → 中心が変わる → 円が動く」と
+            // 繰り返して固まる
             Map(position: $position) {
-                if let center {
-                    MapCircle(center: center, radius: radius)
-                        .foregroundStyle(.blue.opacity(0.15))
-                        .stroke(.blue, lineWidth: 1)
-                }
                 UserAnnotation()
             }
-            .onMapCameraChange(frequency: .continuous) { context in
+            .onMapCameraChange(frequency: .onEnd) { context in
                 center = context.region.center
+                metersPerPoint = context.region.span.latitudeDelta * 111_000 / Self.mapHeight
             }
             .overlay {
-                // 地図の中心（ここを基準に探す）
-                Image(systemName: "plus")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.blue)
-                    .allowsHitTesting(false)
+                ZStack {
+                    if let metersPerPoint, metersPerPoint > 0 {
+                        let diameter = min(radius * 2 / metersPerPoint, 4000)
+                        Circle()
+                            .fill(.blue.opacity(0.15))
+                            .overlay(Circle().stroke(.blue, lineWidth: 1))
+                            .frame(width: diameter, height: diameter)
+                    }
+                    // 地図の中心（ここを基準に探す）
+                    Image(systemName: "plus")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.blue)
+                }
+                .allowsHitTesting(false)
             }
-            .frame(height: 300)
+            .frame(height: Self.mapHeight)
+            .clipped()
 
             VStack(spacing: 8) {
                 Picker("範囲", selection: $radius) {
