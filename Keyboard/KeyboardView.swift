@@ -436,6 +436,8 @@ struct DeleteKey: View {
     let onDeleteToLineEnd: () -> Void
 
     @State private var isPressed = false
+    /// 行削除のフリックと判定する距離。押し始めに設定を読み直す
+    @State private var threshold = CGFloat(KeyboardSettings.deleteFlickDistance)
     /// 押しっぱなしの連続削除が始まったか（始まっていたら、指を離したときには消さない）
     @State private var didRepeat = false
     @State private var timer: Timer?
@@ -453,6 +455,7 @@ struct DeleteKey: View {
                         if !isPressed {
                             isPressed = true
                             didRepeat = false
+                            threshold = CGFloat(KeyboardSettings.deleteFlickDistance)
                             startRepeat()
                         }
                         if direction != 0 {
@@ -485,7 +488,8 @@ struct DeleteKey: View {
     /// 0: フリックなし, 1: 左, 2: 上
     private func flickDirection(_ translation: CGSize) -> Int {
         let (dx, dy) = (translation.width, translation.height)
-        guard max(abs(dx), abs(dy)) >= FlickKey.threshold else { return 0 }
+        // 行削除は取り消せないので、文字キーより長く動かさないと反応しないようにする（距離はアプリで設定）
+        guard max(abs(dx), abs(dy)) >= threshold else { return 0 }
         if abs(dx) > abs(dy) {
             return dx < 0 ? 1 : 0
         }

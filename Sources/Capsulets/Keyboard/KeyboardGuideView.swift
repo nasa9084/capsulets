@@ -3,6 +3,7 @@ import SwiftUI
 /// キーボードの使い始め方と、試し打ちの欄
 struct KeyboardGuideView: View {
     @State private var text = ""
+    @State private var deleteFlickDistance = KeyboardSettings.deleteFlickDistance
 
     var body: some View {
         NavigationStack {
@@ -17,6 +18,18 @@ struct KeyboardGuideView: View {
                     NavigationLink("定型文") {
                         SnippetListView()
                     }
+                }
+                Section {
+                    Picker("行削除フリックの感度", selection: $deleteFlickDistance) {
+                        ForEach(KeyboardSettings.deleteFlickDistanceChoices, id: \.distance) { choice in
+                            Text(choice.title).tag(choice.distance)
+                        }
+                    }
+                } footer: {
+                    Text("削除キーを左・上にフリックして行頭・行末まで消すとき、どれだけ指を動かしたら反応するか。鈍めにするほど、長く動かさないと反応しません。")
+                }
+                .onChange(of: deleteFlickDistance) { _, distance in
+                    KeyboardSettings.deleteFlickDistance = distance
                 }
                 Section("使い始め方") {
                     Text("1. 設定 → 一般 → キーボード → キーボード → 新しいキーボードを追加 で「Capsulets」を選ぶ")
