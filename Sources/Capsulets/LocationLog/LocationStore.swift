@@ -1,6 +1,7 @@
 import CoreLocation
 import Foundation
 import SwiftData
+import UIKit
 
 /// 記録した 1 点
 @Model
@@ -10,12 +11,15 @@ final class LocationPoint {
     var longitude: Double
     /// 水平方向の誤差（m）
     var accuracy: Double
+    /// アプリを開いていない間（裏で動いているか、iOS に起こされたとき）に記録したか
+    var recordedInBackground: Bool = false
 
-    init(timestamp: Date, latitude: Double, longitude: Double, accuracy: Double) {
+    init(timestamp: Date, latitude: Double, longitude: Double, accuracy: Double, recordedInBackground: Bool) {
         self.timestamp = timestamp
         self.latitude = latitude
         self.longitude = longitude
         self.accuracy = accuracy
+        self.recordedInBackground = recordedInBackground
     }
 
     var coordinate: CLLocationCoordinate2D {
@@ -88,7 +92,8 @@ final class LocationStore {
             timestamp: location.timestamp,
             latitude: location.coordinate.latitude,
             longitude: location.coordinate.longitude,
-            accuracy: location.horizontalAccuracy
+            accuracy: location.horizontalAccuracy,
+            recordedInBackground: UIApplication.shared.applicationState != .active
         ))
         try? context.save()
     }
@@ -156,6 +161,13 @@ final class LocationStore {
             },
             sortBy: [SortDescriptor(\.arrival)]
         )
+        return (try? context.fetch(descriptor)) ?? []
+    }
+
+    /// 新しい順に limit 件
+    func recentPoints(limit: Int) -> [LocationPoint] {
+        var descriptor = FetchDescriptor<LocationPoint>(sortBy: [SortDescriptor(\.timestamp, order: .reverse)])
+        descriptor.fetchLimit = limit
         return (try? context.fetch(descriptor)) ?? []
     }
 

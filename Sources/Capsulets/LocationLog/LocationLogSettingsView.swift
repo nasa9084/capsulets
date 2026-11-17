@@ -51,6 +51,9 @@ struct LocationLogSettingsView: View {
                     if let oldestDate {
                         LabeledContent("いちばん古い記録", value: LocationQueries.dateText(oldestDate))
                     }
+                    NavigationLink("最近記録した点を見る") {
+                        LocationPointListView()
+                    }
                 }
 
                 Section {
@@ -108,5 +111,26 @@ struct LocationLogSettingsView: View {
         pointCount = store.pointCount
         visitCount = store.visitCount
         oldestDate = store.oldestDate
+    }
+}
+
+/// 記録した点を新しい順に並べる（記録がちゃんと取れているか確かめるための画面）
+struct LocationPointListView: View {
+    @State private var points: [LocationPoint] = []
+
+    var body: some View {
+        List(points) { point in
+            VStack(alignment: .leading, spacing: 2) {
+                Text(LocationQueries.preciseText(point.timestamp))
+                Text("誤差 約\(Int(point.accuracy)) m・\(point.recordedInBackground ? "アプリを閉じている間に記録" : "アプリを開いている間に記録")")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .navigationTitle("最近記録した点")
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            points = LocationStore.shared.recentPoints(limit: 300)
+        }
     }
 }

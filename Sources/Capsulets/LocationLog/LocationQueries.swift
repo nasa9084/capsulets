@@ -186,6 +186,14 @@ enum LocationQueries {
         return formatter
     }()
 
+    private static let preciseFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "M/d(E) H:mm:ss"
+        return formatter
+    }()
+
+    static func preciseText(_ date: Date) -> String { preciseFormatter.string(from: date) }
     static func timeText(_ date: Date) -> String { timeFormatter.string(from: date) }
     static func dateTimeText(_ date: Date) -> String { dateTimeFormatter.string(from: date) }
     static func dateText(_ date: Date) -> String { dateFormatter.string(from: date) }
