@@ -83,7 +83,11 @@ final class LocationStore {
     // MARK: - 記録
 
     func add(_ location: CLLocation) {
-        // 同じ場所の通知が続けて届くことがあるので、数秒以内のものは捨てる
+        // 同じ場所の通知が続けて届くことがあるので、数秒以内のものは捨てる。
+        // アプリを起動し直した直後は、iOS が前回と同じ位置をもう一度届けるので、保存済みの最後の点とも比べる
+        if lastPointDate == nil {
+            lastPointDate = recentPoints(limit: 1).first?.timestamp
+        }
         if let lastPointDate, abs(location.timestamp.timeIntervalSince(lastPointDate)) < 5 {
             return
         }
