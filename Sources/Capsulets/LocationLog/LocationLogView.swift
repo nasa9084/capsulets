@@ -62,6 +62,63 @@ struct TimelineSearchView: View {
 
     @State private var result = TimelineResult()
     @State private var position: MapCameraPosition = .automatic
+    /// 一覧の引き出しの段階
+    @State private var sheet: SheetDetent = .half
+    /// 取っ手を引いている間の高さの変化（上に引くとプラス）
+    @State private var dragOffset: CGFloat = 0
+
+    enum SheetDetent: CaseIterable {
+        /// 取っ手だけ（地図を大きく見る）
+        case collapsed
+        case half
+        case expanded
+    }
+
+    private static let handleHeight: CGFloat = 28
+
+    private func sheetHeight(in available: CGFloat, for detent: SheetDetent? = nil) -> CGFloat {
+        switch detent ?? sheet {
+        case .collapsed: Self.handleHeight
+        case .half: available * 0.5
+        case .expanded: available * 0.85
+        }
+    }
+
+    /// 一覧の上の取っ手。上下に引くか、タップで段階を切り替える
+    private func sheetHandle(available: CGFloat) -> some View {
+        Capsule()
+            .fill(Color.secondary.opacity(0.5))
+            .frame(width: 40, height: 5)
+            .frame(maxWidth: .infinity)
+            .frame(height: Self.handleHeight)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture()
+                    .onChanged { value in
+                        let current = sheetHeight(in: available)
+                        let proposed = current - value.translation.height
+                        let clamped = min(max(proposed, Self.handleHeight), available * 0.85)
+                        dragOffset = clamped - current
+                    }
+                    .onEnded { value in
+                        // 指を離した高さ（勢いも少し足す）に一番近い段階に合わせる
+                        let target = sheetHeight(in: available) - value.predictedEndTranslation.height
+                        let nearest = SheetDetent.allCases.min {
+                            abs(sheetHeight(in: available, for: $0) - target)
+                                < abs(sheetHeight(in: available, for: $1) - target)
+                        } ?? .half
+                        withAnimation(.snappy(duration: 0.25)) {
+                            sheet = nearest
+                            dragOffset = 0
+                        }
+                    }
+            )
+            .onTapGesture {
+                withAnimation(.snappy(duration: 0.25)) {
+                    sheet = sheet == .collapsed ? .half : .collapsed
+                }
+            }
+    }
 
     private var spansMultipleDays: Bool {
         !Calendar.current.isDate(start, inSameDayAs: end)
@@ -90,49 +147,63 @@ struct TimelineSearchView: View {
             .padding(.horizontal)
             .padding(.bottom, 8)
 
-            Map(position: $position) {
-                if result.path.count >= 2 {
-                    MapPolyline(coordinates: result.path)
-                        .stroke(.blue, lineWidth: 3)
-                }
-                ForEach(result.rows) { row in
-                    if let coordinate = row.coordinate {
-                        Marker(row.title, coordinate: coordinate)
-                    }
-                }
-                UserAnnotation()
-            }
-            .frame(height: 260)
-
-            List {
-                if result.rows.isEmpty {
-                    Text("この期間の記録はありません")
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(result.rows) { row in
-                    Button {
-                        if let coordinate = row.coordinate {
-                            position = .region(MKCoordinateRegion(
-                                center: coordinate, latitudinalMeters: 600, longitudinalMeters: 600
-                            ))
+            // 地図の上に、引き出しのように一覧を重ねる。一覧の上の取っ手を下に引くと地図が大きくなる
+            GeometryReader { geometry in
+                let height = sheetHeight(in: geometry.size.height)
+                ZStack(alignment: .bottom) {
+                    Map(position: $position) {
+                        if result.path.count >= 2 {
+                            MapPolyline(coordinates: result.path)
+                                .stroke(.blue, lineWidth: 3)
                         }
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: row.kind == .stay ? "mappin.circle.fill" : "figure.walk")
-                                .foregroundStyle(row.kind == .stay ? Color.red : Color.blue)
-                                .frame(width: 24)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(row.title)
-                                    .foregroundStyle(Color.primary)
-                                Text("\(LocationQueries.rangeText(from: row.start, to: row.end, showsDate: spansMultipleDays))　\(row.detail)")
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
+                        ForEach(result.rows) { row in
+                            if let coordinate = row.coordinate {
+                                Marker(row.title, coordinate: coordinate)
+                            }
+                        }
+                        UserAnnotation()
+                    }
+                    // 一覧に隠れている分だけ、地図の中身を上に寄せる
+                    .safeAreaPadding(.bottom, height)
+
+                    VStack(spacing: 0) {
+                        sheetHandle(available: geometry.size.height)
+                    List {
+                        if result.rows.isEmpty {
+                            Text("この期間の記録はありません")
+                                .foregroundStyle(.secondary)
+                        }
+                        ForEach(result.rows) { row in
+                            Button {
+                                if let coordinate = row.coordinate {
+                                    position = .region(MKCoordinateRegion(
+                                        center: coordinate, latitudinalMeters: 600, longitudinalMeters: 600
+                                    ))
+                                }
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: row.kind == .stay ? "mappin.circle.fill" : "figure.walk")
+                                        .foregroundStyle(row.kind == .stay ? Color.red : Color.blue)
+                                        .frame(width: 24)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(row.title)
+                                            .foregroundStyle(Color.primary)
+                                        Text("\(LocationQueries.rangeText(from: row.start, to: row.end, showsDate: spansMultipleDays))　\(row.detail)")
+                                            .font(.footnote)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
                             }
                         }
                     }
+                    .listStyle(.plain)
+                    }
+                    .frame(height: height + dragOffset, alignment: .top)
+                    .background(Color(uiColor: .systemBackground))
+                    .clipShape(UnevenRoundedRectangle(topLeadingRadius: 14, topTrailingRadius: 14))
+                    .shadow(color: .black.opacity(0.15), radius: 6, y: -1)
                 }
             }
-            .listStyle(.plain)
         }
         .onAppear(perform: reload)
         .onChange(of: start) { _, _ in reload() }
