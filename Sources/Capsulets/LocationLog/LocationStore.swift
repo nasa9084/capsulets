@@ -78,6 +78,17 @@ final class LocationStore {
             // swiftlint:disable:next force_try
             container = try! ModelContainer(for: LocationPoint.self, StayVisit.self, configurations: configuration)
         }
+        closeStaleVisits()
+    }
+
+    /// 前の版で「滞在中」のまま残った滞在を、次の滞在に着いた時点で終わったことにする
+    private func closeStaleVisits() {
+        let descriptor = FetchDescriptor<StayVisit>(sortBy: [SortDescriptor(\.arrival)])
+        let visits = (try? context.fetch(descriptor)) ?? []
+        for (visit, next) in zip(visits, visits.dropFirst()) where visit.departure == nil {
+            visit.departure = next.arrival
+        }
+        try? context.save()
     }
 
     // MARK: - 記録
@@ -106,11 +117,19 @@ final class LocationStore {
     func add(_ visit: CLVisit) {
         let arrival = visit.arrivalDate == .distantPast ? Date() : visit.arrivalDate
         let departure: Date? = visit.departureDate == .distantFuture ? nil : visit.departureDate
-        var descriptor = FetchDescriptor<StayVisit>(predicate: #Predicate<StayVisit> { $0.arrival == arrival })
+        // 「離れた」の通知は「着いた」と同じ到着時刻で届く。保存のずれを見込んで 1 分以内なら同じ滞在とみなす
+        let (from, to) = (arrival.addingTimeInterval(-60), arrival.addingTimeInterval(60))
+        var descriptor = FetchDescriptor<StayVisit>(predicate: #Predicate<StayVisit> { $0.arrival >= from && $0.arrival <= to })
         descriptor.fetchLimit = 1
         if let existing = try? context.fetch(descriptor).first {
             existing.departure = departure
         } else {
+            // 新しい場所に着いたのに「滞在中」のまま残っている前の滞在は、ここに着いた時点で終わったことにする
+            // （「離れた」の通知は、アプリが起こされなかったなどで届かないことがある）
+            let open = FetchDescriptor<StayVisit>(predicate: #Predicate<StayVisit> { $0.departure == nil && $0.arrival < arrival })
+            for visit in (try? context.fetch(open)) ?? [] {
+                visit.departure = arrival
+            }
             context.insert(StayVisit(
                 arrival: arrival,
                 departure: departure,

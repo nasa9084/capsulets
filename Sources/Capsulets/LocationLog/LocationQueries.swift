@@ -45,19 +45,22 @@ enum LocationQueries {
         }
 
         var cursor = start
-        for visit in visits {
+        for (index, visit) in visits.enumerated() {
+            // 「滞在中」のまま次の滞在があるもの（前に記録した分）は、次に着いた時点で終わったことにする
+            let nextArrival = visits.dropFirst(index + 1).first?.arrival
+            let departure = visit.departure ?? nextArrival
             if let move = moveRow(points, from: cursor, to: visit.arrival) {
                 result.rows.append(move)
             }
             result.rows.append(TimelineRow(
                 kind: .stay,
                 start: visit.arrival,
-                end: visit.departure,
+                end: departure,
                 title: visit.placeName ?? "滞在",
-                detail: visit.departure.map { durationText(from: visit.arrival, to: $0) } ?? "滞在中",
+                detail: departure.map { durationText(from: visit.arrival, to: $0) } ?? "滞在中",
                 coordinate: visit.coordinate
             ))
-            cursor = max(cursor, visit.departure ?? end)
+            cursor = max(cursor, departure ?? end)
         }
         if let move = moveRow(points, from: cursor, to: end) {
             result.rows.append(move)
