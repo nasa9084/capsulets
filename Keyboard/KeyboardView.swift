@@ -15,7 +15,9 @@ struct KeyboardView: View {
 
     var body: some View {
         Group {
-            if state.isEmojiVisible {
+            if state.isCandidatePanelOpen {
+                CandidatePanel(state: state)
+            } else if state.isEmojiVisible {
                 EmojiPicker(state: state, model: state.emoji)
             } else {
                 keys
@@ -162,7 +164,7 @@ struct KeyboardView: View {
                 onDeleteToLineEnd: { state.deleteToLineEnd() }
             )
             FunctionKey(label: .symbol("arrow.right")) { state.moveCursor(1) }
-            FunctionKey(label: .text("空白")) { state.space() }
+            FunctionKey(label: .text(state.isComposing ? "変換" : "空白")) { state.space() }
             FunctionKey(label: .text(state.isComposing ? "確定" : "改行"), isProminent: state.isComposing) {
                 state.enter()
             }

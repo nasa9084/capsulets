@@ -54,6 +54,13 @@ final class KeyboardState: ObservableObject {
     @Published var needsGlobeKey = false
     @Published private(set) var candidates: [Candidate] = []
     @Published private(set) var isComposing = false
+    /// 変換候補をキーボード全体に広げて出しているか（入力中に「変換」キーで開く）
+    @Published private(set) var isCandidatePanelOpen = false
+    /// 「変換」「次候補」で選んでいる候補
+    @Published private(set) var selectedCandidate: Int?
+    /// 入力中の文字と、そのうち変換する範囲（候補の一覧の上に出す）
+    @Published private(set) var composingText = ""
+    @Published private(set) var targetText = ""
 
     /// 押している最中のキーの表示用
     let flick = FlickModel()
@@ -466,11 +473,46 @@ final class KeyboardState: ObservableObject {
     }
 
     /// 空白を入れる。入力中なら、ひらがなのまま確定してから入れる
+    /// 入力中は「変換」（候補の一覧を開いて次の候補を選ぶ）、そうでなければ空白
     func space() {
         playSound(.function)
         resetCompletion()
-        commitAsIs()
+        if isComposing {
+            isCandidatePanelOpen = true
+            selectNextCandidate()
+            return
+        }
         proxy?.insertText(" ")
+    }
+
+    /// 候補の一覧で、次の候補を選ぶ
+    func nextCandidate() {
+        playSound(.function)
+        selectNextCandidate()
+    }
+
+    private func selectNextCandidate() {
+        guard !candidates.isEmpty else { return }
+        selectedCandidate = ((selectedCandidate ?? -1) + 1) % candidates.count
+        showSelectedCandidate()
+    }
+
+    /// 候補の一覧を閉じて、キーに戻る（入力中の文字はそのまま）
+    func closeCandidatePanel() {
+        playSound(.function)
+        isCandidatePanelOpen = false
+        selectedCandidate = nil
+        refresh()
+    }
+
+    /// 選んでいる候補と、その候補に含まれない残りのひらがなを並べて、未確定の文字として見せる
+    private func showSelectedCandidate() {
+        guard let index = selectedCandidate, candidates.indices.contains(index) else { return }
+        var rest = composing
+        rest.prefixComplete(composingCount: candidates[index].composingCount)
+        let restText = rest.isEmpty ? "" : rest.convertTarget
+        let text = candidates[index].text + restText
+        proxy?.setMarkedText(text, selectedRange: NSRange(location: (text as NSString).length, length: 0))
     }
 
     /// 入力中は「確定」、そうでなければ改行
@@ -481,7 +523,12 @@ final class KeyboardState: ObservableObject {
             proxy?.insertText("\n")
             return
         }
-        commitAsIs()
+        if let selectedCandidate {
+            // 選んでいる候補で確定する。残りがあれば、候補の一覧のまま続きを変換する
+            choose(selectedCandidate)
+        } else {
+            commitAsIs()
+        }
     }
 
     /// カーソルを動かす。入力中は、変換する範囲（先頭からカーソルまで）を縮めたり伸ばしたりする
@@ -559,6 +606,10 @@ final class KeyboardState: ObservableObject {
         composing = ComposingText()
         candidates = []
         isComposing = false
+        isCandidatePanelOpen = false
+        selectedCandidate = nil
+        composingText = ""
+        targetText = ""
         converter.stopComposition()
         converter.commitUpdateLearningData()
     }
@@ -581,6 +632,13 @@ final class KeyboardState: ObservableObject {
                 : NSRange(location: 0, length: targetLength)
         )
         candidates = converter.requestCandidates(target, options: options).mainResults
+        composingText = text
+        targetText = target.convertTarget
+        // 候補の一覧を開いているときは、範囲を変えたあとも先頭の候補を選んだままにする
+        selectedCandidate = isCandidatePanelOpen && !candidates.isEmpty ? 0 : nil
+        if selectedCandidate != nil {
+            showSelectedCandidate()
+        }
     }
 
     private func showMarkedText(_ text: String) {
