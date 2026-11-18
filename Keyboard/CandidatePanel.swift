@@ -27,7 +27,7 @@ struct CandidatePanel: View {
                                     .padding(.horizontal, 10)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .frame(height: 46)
-                                    .background(state.selectedCandidate == index ? Color.accentColor : KeyColor.normal)
+                                    .background(state.selectedCandidate == index ? state.accent : KeyColor.normal)
                                     .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
@@ -59,7 +59,7 @@ struct CandidatePanel: View {
                     Text(state.targetText)
                         .font(.system(size: 18))
                         .foregroundStyle(.clear)
-                        .background(Color.accentColor)
+                        .background(state.accent)
                 }
                 .padding(.horizontal, 10)
             Spacer()

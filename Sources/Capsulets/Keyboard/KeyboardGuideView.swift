@@ -4,6 +4,7 @@ import SwiftUI
 struct KeyboardGuideView: View {
     @State private var text = ""
     @State private var deleteFlickDistance = KeyboardSettings.deleteFlickDistance
+    @State private var accentColor = KeyboardSettings.accentColor
 
     var body: some View {
         NavigationStack {
@@ -18,6 +19,25 @@ struct KeyboardGuideView: View {
                     NavigationLink("定型文") {
                         SnippetListView()
                     }
+                }
+                Section {
+                    Picker("キーボードの色", selection: $accentColor) {
+                        ForEach(KeyboardSettings.accentColorChoices, id: \.hex) { choice in
+                            Label {
+                                Text(choice.title)
+                            } icon: {
+                                Image(systemName: "circle.fill")
+                                    .foregroundStyle(Color(hex: choice.hex))
+                            }
+                            .tag(choice.hex)
+                        }
+                    }
+                    .pickerStyle(.navigationLink)
+                } footer: {
+                    Text("フリックしたときの表示、変換候補の選択、定型文の選択、確定キーの色。次にキーボードを出したときから変わります。")
+                }
+                .onChange(of: accentColor) { _, color in
+                    KeyboardSettings.accentColor = color
                 }
                 Section {
                     Picker("行削除フリックの感度", selection: $deleteFlickDistance) {

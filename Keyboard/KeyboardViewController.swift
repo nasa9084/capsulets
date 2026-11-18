@@ -31,6 +31,11 @@ final class KeyboardViewController: UIInputViewController {
         height.isActive = true
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        state.reloadSettings()
+    }
+
     override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
         // ホームボタンのない機種では地球儀キーを iOS が下に出すので、自前では出さない

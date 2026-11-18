@@ -54,6 +54,8 @@ final class KeyboardState: ObservableObject {
     @Published var needsGlobeKey = false
     @Published private(set) var candidates: [Candidate] = []
     @Published private(set) var isComposing = false
+    /// フリックの表示・候補の選択・確定キーの色（アプリの設定から読む）
+    @Published private(set) var accent = Color(hex: KeyboardSettings.accentColor)
     /// 変換候補をキーボード全体に広げて出しているか（入力中に「変換」キーで開く）
     @Published private(set) var isCandidatePanelOpen = false
     /// 「変換」「次候補」で選んでいる候補
@@ -121,6 +123,14 @@ final class KeyboardState: ObservableObject {
             metadata: .init(versionString: "Capsulets Keyboard")
         )
     }()
+
+    /// キーボードが出るたびに、アプリで変えた設定を読み直す
+    func reloadSettings() {
+        let color = Color(hex: KeyboardSettings.accentColor)
+        if color != accent {
+            accent = color
+        }
+    }
 
     // MARK: - タイプ音
 

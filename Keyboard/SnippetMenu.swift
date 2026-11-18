@@ -62,6 +62,7 @@ enum SnippetMenuLayout {
 /// 定型文リスト。指を乗せた行が青くなり、離すと入力される
 struct SnippetMenu: View {
     @ObservedObject var model: SnippetMenuModel
+    @Environment(\.keyboardAccent) private var accent
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -100,7 +101,7 @@ struct SnippetMenu: View {
             .padding(.horizontal, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: SnippetMenuLayout.rowHeight)
-            .background(isHovered ? Color.accentColor : Color.clear)
+            .background(isHovered ? accent : Color.clear)
     }
 }
 

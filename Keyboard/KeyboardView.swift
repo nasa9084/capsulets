@@ -33,6 +33,7 @@ struct KeyboardView: View {
             SnippetMenu(model: state.snippetMenu)
                 .allowsHitTesting(false)
         }
+        .environment(\.keyboardAccent, state.accent)
         // iOS がキーボードを指定より高くしたときも、上にすき間を作らず上端にそろえる
         .frame(maxHeight: .infinity, alignment: .top)
     }
@@ -331,6 +332,7 @@ struct FlickKey: View {
 /// 押すと青くなり、フリックするとその方向の隣のマスまで伸びる
 struct FlickBubble: View {
     @ObservedObject var model: FlickModel
+    @Environment(\.keyboardAccent) private var accent
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -338,7 +340,7 @@ struct FlickBubble: View {
                 let cell = targetCell(preview)
                 let shape = preview.frame.union(cell)
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.accentColor)
+                    .fill(accent)
                     .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
                     .frame(width: shape.width, height: shape.height)
                     .position(x: shape.midX, y: shape.midY)
@@ -396,6 +398,7 @@ struct FunctionKey: View {
     let label: Label
     var isProminent = false
     let action: () -> Void
+    @Environment(\.keyboardAccent) private var accent
 
     var body: some View {
         Button(action: action) {
@@ -409,7 +412,7 @@ struct FunctionKey: View {
         .buttonStyle(
             isProminent
                 ? KeyButtonStyle(
-                    color: Color.accentColor, pressedColor: Color.accentColor.opacity(0.6), textColor: Color.white
+                    color: accent, pressedColor: accent.opacity(0.6), textColor: Color.white
                 )
                 : KeyButtonStyle(color: KeyColor.function, pressedColor: KeyColor.functionPressed)
         )
@@ -512,5 +515,19 @@ struct DeleteKey: View {
     private func stopRepeat() {
         timer?.invalidate()
         timer = nil
+    }
+}
+
+// MARK: - 色
+
+private struct KeyboardAccentKey: EnvironmentKey {
+    static let defaultValue = Color(hex: KeyboardSettings.defaultAccentColor)
+}
+
+extension EnvironmentValues {
+    /// フリックの表示・候補の選択・確定キーの色
+    var keyboardAccent: Color {
+        get { self[KeyboardAccentKey.self] }
+        set { self[KeyboardAccentKey.self] = newValue }
     }
 }
