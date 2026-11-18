@@ -199,9 +199,13 @@ struct TimelineSearchView: View {
                     .listStyle(.plain)
                     }
                     .frame(height: height + dragOffset, alignment: .top)
-                    .background(Color(uiColor: .systemBackground))
-                    .clipShape(UnevenRoundedRectangle(topLeadingRadius: 14, topTrailingRadius: 14))
-                    .shadow(color: .black.opacity(0.15), radius: 6, y: -1)
+                    // 地図は画面の下端（タブバーの裏）まで描かれるので、引き出しの背景も下端まで伸ばして隠す
+                    .background(
+                        UnevenRoundedRectangle(topLeadingRadius: 14, topTrailingRadius: 14)
+                            .fill(Color(uiColor: .systemBackground))
+                            .shadow(color: .black.opacity(0.15), radius: 6, y: -1)
+                            .ignoresSafeArea(edges: .bottom)
+                    )
                 }
             }
         }
