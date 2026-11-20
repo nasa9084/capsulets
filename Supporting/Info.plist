@@ -19,6 +19,8 @@
 	<string>いた場所と移動を記録して、あとから調べられるようにします。記録はこの iPhone の中だけに保存します。</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>アプリを閉じている間も、いた場所と移動を記録します。記録はこの iPhone の中だけに保存します。</string>
+	<key>NSMotionUsageDescription</key>
+	<string>「通った道まで」の記録で、歩き出しや乗り物での移動の始まりを検知して、GPS の記録を再開するのに使います。</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
