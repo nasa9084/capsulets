@@ -190,6 +190,27 @@ final class LocationRecorder: NSObject, ObservableObject {
         }
     }
 
+    /// 許可を 1 段ずつ求める（使用中のみ → 常に）
+    func requestAuthorizationIfNeeded() {
+        switch authorization {
+        case .notDetermined:
+            manager.requestWhenInUseAuthorization()
+        case .authorizedWhenInUse:
+            manager.requestAlwaysAuthorization()
+        default:
+            break
+        }
+    }
+
+    private func record(_ location: CLLocation) {
+        // 誤差が大きすぎる点と、古すぎる点は捨てる
+        let maxAccuracy: Double = mode == .detailed ? 100 : 3000
+        guard location.horizontalAccuracy >= 0, location.horizontalAccuracy <= maxAccuracy,
+              abs(location.timestamp.timeIntervalSinceNow) < 24 * 60 * 60
+        else { return }
+        LocationStore.shared.add(location)
+    }
+
     /// 滞在や大きな移動の通知が届いたら、休んでいても GPS を再開する
     private func resumeDetailedUpdatesIfPaused() {
         if mode == .detailed, tracking == .resting {
