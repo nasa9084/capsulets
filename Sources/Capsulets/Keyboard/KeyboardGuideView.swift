@@ -19,6 +19,9 @@ struct KeyboardGuideView: View {
                     NavigationLink("定型文") {
                         SnippetListView()
                     }
+                    NavigationLink("キーボードのログ") {
+                        KeyboardLogView()
+                    }
                 }
                 Section {
                     Picker("キーボードの色", selection: $accentColor) {

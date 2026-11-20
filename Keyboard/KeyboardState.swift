@@ -100,7 +100,13 @@ final class KeyboardState: ObservableObject {
 
     private var proxy: (any UITextDocumentProxy)? { controller?.textDocumentProxy }
     /// 辞書の読み込みが走るので、最初の入力まで作らない
-    private lazy var converter = KanaKanjiConverter.withDefaultDictionary()
+    private lazy var converter: KanaKanjiConverter = {
+        KeyboardLog.add("変換エンジンの準備を開始")
+        let start = Date()
+        let converter = KanaKanjiConverter.withDefaultDictionary()
+        KeyboardLog.add("変換エンジンの準備完了（\(Int(Date().timeIntervalSince(start) * 1000))ms）")
+        return converter
+    }()
     private var composing = ComposingText()
 
     private lazy var options: ConvertRequestOptions = {
@@ -641,7 +647,12 @@ final class KeyboardState: ObservableObject {
                 ? NSRange(location: (text as NSString).length, length: 0)
                 : NSRange(location: 0, length: targetLength)
         )
+        let requestStart = Date()
         candidates = converter.requestCandidates(target, options: options).mainResults
+        let elapsed = Date().timeIntervalSince(requestStart)
+        if elapsed > 0.3 {
+            KeyboardLog.add("変換に時間がかかった（\(Int(elapsed * 1000))ms、\(target.convertTarget.count)文字）")
+        }
         composingText = text
         targetText = target.convertTarget
         // 候補の一覧を開いているときは、範囲を変えたあとも先頭の候補を選んだままにする
