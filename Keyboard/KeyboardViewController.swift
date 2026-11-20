@@ -38,7 +38,9 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        KeyboardLog.add("表示の準備")
+        let proxy = textDocumentProxy
+        let contentType = proxy.textContentType.map { $0?.rawValue ?? "なし" } ?? "なし"
+        KeyboardLog.add("表示の準備（入力欄の種類: \(Self.keyboardTypeName(proxy.keyboardType ?? .default))、内容: \(contentType)）")
         state.reloadSettings()
     }
 
@@ -70,7 +72,27 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
+        KeyboardLog.add("閉じた")
         KeyboardLog.sessionEnded()
+    }
+
+    /// 入力欄が求めるキーボードの種類（電話番号の欄などでは iOS が標準のキーボードに切り替えることがある）
+    private static func keyboardTypeName(_ type: UIKeyboardType) -> String {
+        switch type {
+        case .default: "標準"
+        case .asciiCapable: "英数字"
+        case .numbersAndPunctuation: "数字と記号"
+        case .URL: "URL"
+        case .numberPad: "数字"
+        case .phonePad: "電話番号"
+        case .namePhonePad: "名前と電話番号"
+        case .emailAddress: "メールアドレス"
+        case .decimalPad: "小数"
+        case .twitter: "Twitter"
+        case .webSearch: "Web 検索"
+        case .asciiCapableNumberPad: "英数字の数字"
+        @unknown default: "その他(\(type.rawValue))"
+        }
     }
 
     deinit {
