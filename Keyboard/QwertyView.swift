@@ -72,6 +72,8 @@ struct QwertyKeys: View {
                     onSelect: { state.insertSnippet($0) }
                 )
                 .frame(width: bottomSideWidth)
+                FunctionKey(label: .symbol("keyboard.chevron.compact.down")) { state.dismissKeyboard() }
+                    .frame(width: unit)
                 Button {
                     state.space()
                 } label: {
