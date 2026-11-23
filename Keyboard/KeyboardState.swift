@@ -603,6 +603,18 @@ final class KeyboardState: ObservableObject {
         }
     }
 
+    /// 入力中に、アプリが入力欄を空にしたとき（LINE で未確定のまま送信したときなど）は、
+    /// 入力中の文字を捨てる。捨てないと、次に打ったときに送信済みの文字がもう一度入ってしまう
+    func handleExternalTextChange() {
+        guard isComposing else { return }
+        let before = proxy?.documentContextBeforeInput ?? ""
+        let after = proxy?.documentContextAfterInput ?? ""
+        guard before.isEmpty, after.isEmpty else { return }
+        KeyboardLog.add("入力欄が空にされたので、入力中の文字（\(composing.convertTarget.count)文字）を破棄")
+        finishComposition()
+        resetCompletion()
+    }
+
     /// 変換せず、ひらがなのまま確定する
     func commitAsIs() {
         guard isComposing else { return }

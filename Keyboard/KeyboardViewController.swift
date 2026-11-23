@@ -55,6 +55,12 @@ final class KeyboardViewController: UIInputViewController {
         KeyboardLog.add("⚠️ iOS からメモリ不足の警告")
     }
 
+    /// 入力欄の中身がアプリ側で変わったとき（送信して欄が空になったときなど）
+    override func textDidChange(_ textInput: (any UITextInput)?) {
+        super.textDidChange(textInput)
+        state.handleExternalTextChange()
+    }
+
     override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
         // ホームボタンのない機種では地球儀キーを iOS が下に出すので、自前では出さない
