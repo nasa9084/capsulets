@@ -69,6 +69,14 @@ final class EmojiModel: ObservableObject {
     /// この iOS で表示できる絵文字（カテゴリを開いたときに調べて覚えておく）
     private var supported: [EmojiCategory: [String]] = [:]
 
+    /// 表示できるかを調べた結果を手放す（メモリが足りないときやキーボードを閉じたとき）
+    func releaseCache() {
+        supported = [:]
+        if !emojis.isEmpty {
+            emojis = []
+        }
+    }
+
     /// 一覧を開く。最近使った絵文字があればそこから始める
     func open() {
         select(recents.isEmpty ? .smileys : .recent)

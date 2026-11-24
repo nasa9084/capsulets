@@ -46,10 +46,17 @@ final class KeyboardState: ObservableObject {
     @Published private(set) var symbolPage = 0
 
     init() {
+        Self.liveCount += 1
+        KeyboardLog.add("状態を作成（生きている数: \(Self.liveCount)）")
         // QWERTY には日本語がないので、英語から始める
         if layout == .qwerty {
             tab = .english
         }
+    }
+
+    deinit {
+        Self.liveCount -= 1
+        KeyboardLog.add("状態を破棄（生きている数: \(Self.liveCount)）")
     }
     @Published var needsGlobeKey = false
     @Published private(set) var candidates: [Candidate] = []
@@ -100,13 +107,33 @@ final class KeyboardState: ObservableObject {
 
     private var proxy: (any UITextDocumentProxy)? { controller?.textDocumentProxy }
     /// 辞書の読み込みが走るので、最初の入力まで作らない
-    private lazy var converter: KanaKanjiConverter = {
+    /// 変換エンジン。辞書を読み込んだぶんメモリを使うので、キーボードを閉じたら手放し、次に使うときに作り直す
+    private var converterStorage: KanaKanjiConverter?
+    private var converter: KanaKanjiConverter {
+        if let converterStorage {
+            return converterStorage
+        }
         KeyboardLog.add("変換エンジンの準備を開始")
         let start = Date()
         let converter = KanaKanjiConverter.withDefaultDictionary()
         KeyboardLog.add("変換エンジンの準備完了（\(Int(Date().timeIntervalSince(start) * 1000))ms）")
+        converterStorage = converter
         return converter
-    }()
+    }
+
+    /// いま生きている KeyboardState の数（閉じたキーボードの分が残っていないかを確かめるため）
+    private static var liveCount = 0
+
+    /// 入力中でなければ、変換エンジンと作り直せるキャッシュを手放してメモリを空ける
+    func releaseMemory(reason: String) {
+        if !isEmojiVisible {
+            emoji.releaseCache()
+        }
+        guard !isComposing, converterStorage != nil else { return }
+        converterStorage?.commitUpdateLearningData()
+        converterStorage = nil
+        KeyboardLog.add("変換エンジンを解放（\(reason)）")
+    }
     private var composing = ComposingText()
 
     private lazy var options: ConvertRequestOptions = {
@@ -638,8 +665,8 @@ final class KeyboardState: ObservableObject {
         selectedCandidate = nil
         composingText = ""
         targetText = ""
-        converter.stopComposition()
-        converter.commitUpdateLearningData()
+        converterStorage?.stopComposition()
+        converterStorage?.commitUpdateLearningData()
     }
 
     // MARK: - 表示

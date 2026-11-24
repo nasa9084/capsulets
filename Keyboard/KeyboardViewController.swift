@@ -52,8 +52,15 @@ final class KeyboardViewController: UIInputViewController {
 
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
-        KeyboardLog.add("⚠️ iOS からメモリ不足の警告")
+        // 警告は一度に何十回も届くので、ログは 5 秒に 1 回にする
+        if Date().timeIntervalSince(lastMemoryWarningLog) > 5 {
+            lastMemoryWarningLog = Date()
+            KeyboardLog.add("⚠️ iOS からメモリ不足の警告")
+        }
+        state.releaseMemory(reason: "メモリ不足の警告")
     }
+
+    private var lastMemoryWarningLog = Date.distantPast
 
     /// 入力欄の中身がアプリ側で変わったとき（送信して欄が空になったときなど）
     override func textDidChange(_ textInput: (any UITextInput)?) {
@@ -79,6 +86,7 @@ final class KeyboardViewController: UIInputViewController {
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         KeyboardLog.add("閉じた")
+        state.releaseMemory(reason: "閉じた")
         KeyboardLog.sessionEnded()
     }
 
