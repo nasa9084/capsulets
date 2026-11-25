@@ -124,6 +124,18 @@ final class KeyboardState: ObservableObject {
     /// いま生きている KeyboardState の数（閉じたキーボードの分が残っていないかを確かめるため）
     private static var liveCount = 0
 
+    /// キーボードが終了するときに、大きなものをすべて手放す（この state が何かに握られたまま残っても、メモリは空く）
+    func tearDown() {
+        converterStorage?.stopComposition()
+        converterStorage?.commitUpdateLearningData()
+        converterStorage = nil
+        composing = ComposingText()
+        candidates = []
+        completions = []
+        emoji.releaseCache()
+        controller = nil
+    }
+
     /// 入力中でなければ、変換エンジンと作り直せるキャッシュを手放してメモリを空ける
     func releaseMemory(reason: String) {
         if !isEmojiVisible {

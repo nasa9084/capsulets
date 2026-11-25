@@ -4,6 +4,8 @@ import UIKit
 /// キーボード拡張機能の入口。SwiftUI のキーボード画面を載せる
 final class KeyboardViewController: UIInputViewController {
     private let state = KeyboardState()
+    /// キーボードの画面。閉じたあとも iOS 側に残ることがあるので、終了時に中身を空にして state を手放す
+    private var host: UIHostingController<AnyView>?
     /// 読み込んでから表示されるまでの時間を測る
     private var loadedAt = Date()
 
@@ -14,7 +16,8 @@ final class KeyboardViewController: UIInputViewController {
         KeyboardLog.add("読み込み（フルアクセス: \(hasFullAccess ? "オン" : "オフ")）")
         state.controller = self
 
-        let host = UIHostingController(rootView: KeyboardView(state: state))
+        let host = UIHostingController(rootView: AnyView(KeyboardView(state: state)))
+        self.host = host
         host.view.backgroundColor = .clear
         // iOS がキーボードの上端に取る余白（セーフエリア）の分、中身が下がらないようにする
         host.safeAreaRegions = []
@@ -111,6 +114,13 @@ final class KeyboardViewController: UIInputViewController {
 
     deinit {
         KeyboardLog.add("終了")
+        // 画面（SwiftUI）が state を握ったまま残ると、変換エンジンごとメモリに残り続ける。
+        // 画面の中身を空にし、state が持っている大きなものも先に手放しておく
+        MainActor.assumeIsolated {
+            host?.rootView = AnyView(EmptyView())
+            host = nil
+            state.tearDown()
+        }
         KeyboardLog.sessionEnded()
     }
 }
