@@ -41,6 +41,11 @@ enum KeyboardLog {
         }
     }
 
+    /// 書きかけのログを書き終えるまで待つ（キーボードを終了する前に使う）
+    static func flush() {
+        queue.sync {}
+    }
+
     /// キーボードを読み込んだときに呼ぶ。前回の終了の記録がなければ、強制終了された可能性を書き残す
     static func sessionStarted() {
         let defaults = AppGroup.defaults
@@ -74,6 +79,11 @@ enum KeyboardLog {
 
     /// 今のメモリ使用量（MB）。キーボード拡張機能は数十 MB を超えると iOS に止められる
     static func memoryText() -> String {
+        guard let mb = memoryMB() else { return "?MB" }
+        return String(format: "%.0fMB", mb)
+    }
+
+    static func memoryMB() -> Double? {
         var info = task_vm_info_data_t()
         var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
         let result = withUnsafeMutablePointer(to: &info) {
@@ -81,7 +91,7 @@ enum KeyboardLog {
                 task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
             }
         }
-        guard result == KERN_SUCCESS else { return "?MB" }
-        return String(format: "%.0fMB", Double(info.phys_footprint) / 1_048_576)
+        guard result == KERN_SUCCESS else { return nil }
+        return Double(info.phys_footprint) / 1_048_576
     }
 }

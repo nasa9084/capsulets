@@ -106,9 +106,13 @@ final class KeyboardState: ObservableObject {
     weak var controller: UIInputViewController?
 
     private var proxy: (any UITextDocumentProxy)? { controller?.textDocumentProxy }
-    /// 辞書の読み込みが走るので、最初の入力まで作らない
-    /// 変換エンジン。辞書を読み込んだぶんメモリを使うので、キーボードを閉じたら手放し、次に使うときに作り直す
-    private var converterStorage: KanaKanjiConverter?
+    /// 変換エンジン。辞書の読み込みが走るので最初の入力まで作らない。
+    /// 作り直すたびに辞書を読み直してメモリが増えていくので、プロセスの中で 1 つだけ作って使い回す
+    private static var sharedConverter: KanaKanjiConverter?
+    private var converterStorage: KanaKanjiConverter? {
+        get { Self.sharedConverter }
+        set { Self.sharedConverter = newValue }
+    }
     private var converter: KanaKanjiConverter {
         if let converterStorage {
             return converterStorage
@@ -126,9 +130,10 @@ final class KeyboardState: ObservableObject {
 
     /// キーボードが終了するときに、大きなものをすべて手放す（この state が何かに握られたまま残っても、メモリは空く）
     func tearDown() {
-        converterStorage?.stopComposition()
+        if isComposing {
+            converterStorage?.stopComposition()
+        }
         converterStorage?.commitUpdateLearningData()
-        converterStorage = nil
         composing = ComposingText()
         candidates = []
         completions = []
@@ -137,11 +142,16 @@ final class KeyboardState: ObservableObject {
     }
 
     /// 入力中でなければ、変換エンジンと作り直せるキャッシュを手放してメモリを空ける
-    func releaseMemory(reason: String) {
+    /// 変換エンジンはメモリ不足の警告のときだけ手放す（閉じるたびに手放すと、作り直しでかえって増える）
+    func releaseMemory(reason: String, includingConverter: Bool) {
         if !isEmojiVisible {
             emoji.releaseCache()
         }
         guard !isComposing, converterStorage != nil else { return }
+        guard includingConverter else {
+            converterStorage?.commitUpdateLearningData()
+            return
+        }
         converterStorage?.commitUpdateLearningData()
         converterStorage = nil
         KeyboardLog.add("変換エンジンを解放（\(reason)）")
