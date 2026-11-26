@@ -57,13 +57,9 @@ struct KeyboardView: View {
         VStack(spacing: 0) {
             CandidateBar(state: state)
                 .frame(height: Self.candidateBarHeight)
-                // 普通の画面では背景を塗って、iOS が描くキーボードの外枠（上の角が丸い）を候補バーの後ろに隠す。
-                // 広い画面では iOS がすりガラスのパネルを出すので、塗らずに溶け込ませ、キーとの境目に線を引く
-                .background(isWide ? Color.clear : Color(uiColor: .systemBackground))
+                // iOS が描くキーボードのパネルに溶け込ませ、キーとの境目に線を引く
                 .overlay(alignment: .bottom) {
-                    if isWide {
-                        Divider().padding(.horizontal, Self.padding)
-                    }
+                    Divider().padding(.horizontal, Self.padding)
                 }
             GeometryReader { geometry in
                 switch state.layout {
