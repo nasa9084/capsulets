@@ -20,9 +20,18 @@ env:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
+
+      # iPhone Duo の内側の画面いっぱいに出すには、新しい SDK（Xcode 27.1 以降）でビルドする必要がある。
+      # ランナーに入っている中で一番新しい Xcode を使う
+      - name: Select newest Xcode
+        run: |
+          ls -d /Applications/Xcode*.app
+          newest=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          echo "Using $newest"
+          sudo xcode-select -s "$newest/Contents/Developer"
 
       - name: Install XcodeGen
         run: brew install xcodegen
