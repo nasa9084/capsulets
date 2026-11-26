@@ -12,15 +12,31 @@ struct KeyboardView: View {
     static let spacing: CGFloat = 6
     static let padding: CGFloat = 4
     static let totalHeight: CGFloat = candidateBarHeight + keyHeight * 4 + spacing * 3 + padding * 2
+    /// これより横に広い画面（iPhone Duo の内側の画面など）では、キーボードを狭めて左右どちらかや中央に寄せる
+    static let wideThreshold: CGFloat = 600
+    /// 広い画面でのキーボードの幅（大きめの iPhone と同じくらい）
+    static let wideWidth: CGFloat = 440
 
     var body: some View {
+        GeometryReader { geometry in
+            let isWide = geometry.size.width > Self.wideThreshold
+            content(isWide: isWide)
+                .frame(width: isWide ? Self.wideWidth : geometry.size.width)
+                .frame(maxWidth: .infinity, alignment: state.wideAlignment.alignment)
+        }
+        .frame(height: Self.totalHeight)
+        // iOS がキーボードを指定より高くしたときも、上にすき間を作らず上端にそろえる
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    private func content(isWide: Bool) -> some View {
         Group {
             if state.isCandidatePanelOpen {
                 CandidatePanel(state: state)
             } else if state.isEmojiVisible {
                 EmojiPicker(state: state, model: state.emoji)
             } else {
-                keys
+                keys(isWide: isWide)
             }
         }
         .frame(height: Self.totalHeight)
@@ -34,17 +50,21 @@ struct KeyboardView: View {
                 .allowsHitTesting(false)
         }
         .environment(\.keyboardAccent, state.accent)
-        // iOS がキーボードを指定より高くしたときも、上にすき間を作らず上端にそろえる
-        .frame(maxHeight: .infinity, alignment: .top)
     }
 
     /// 変換候補とキー
-    private var keys: some View {
+    private func keys(isWide: Bool) -> some View {
         VStack(spacing: 0) {
             CandidateBar(state: state)
                 .frame(height: Self.candidateBarHeight)
-                // 背景を塗って、iOS が描くキーボードの外枠（上の角が丸い）を候補バーの後ろに隠す
-                .background(Color(uiColor: .systemBackground))
+                // 普通の画面では背景を塗って、iOS が描くキーボードの外枠（上の角が丸い）を候補バーの後ろに隠す。
+                // 広い画面では iOS がすりガラスのパネルを出すので、塗らずに溶け込ませ、キーとの境目に線を引く
+                .background(isWide ? Color.clear : Color(uiColor: .systemBackground))
+                .overlay(alignment: .bottom) {
+                    if isWide {
+                        Divider().padding(.horizontal, Self.padding)
+                    }
+                }
             GeometryReader { geometry in
                 switch state.layout {
                 case .flick:

@@ -63,6 +63,8 @@ final class KeyboardState: ObservableObject {
     @Published private(set) var isComposing = false
     /// フリックの表示・候補の選択・確定キーの色（アプリの設定から読む）
     @Published private(set) var accent = Color(hex: KeyboardSettings.accentColor)
+    /// 広い画面でキーボードを寄せる位置
+    @Published private(set) var wideAlignment = KeyboardSettings.wideAlignment
     /// 変換候補をキーボード全体に広げて出しているか（入力中に「変換」キーで開く）
     @Published private(set) var isCandidatePanelOpen = false
     /// 「変換」「次候補」で選んでいる候補
@@ -184,6 +186,10 @@ final class KeyboardState: ObservableObject {
         let color = Color(hex: KeyboardSettings.accentColor)
         if color != accent {
             accent = color
+        }
+        let alignment = KeyboardSettings.wideAlignment
+        if alignment != wideAlignment {
+            wideAlignment = alignment
         }
     }
 

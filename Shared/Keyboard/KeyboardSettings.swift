@@ -32,6 +32,36 @@ enum KeyboardSettings {
     ]
     static let defaultAccentColor = "3478F6"
 
+    // MARK: - 広い画面での位置
+
+    private static let wideAlignmentKey = "wideAlignment"
+
+    /// iPhone Duo の内側の画面など、横に広いときにキーボードを寄せる位置
+    enum WideAlignment: String, CaseIterable {
+        case leading, center, trailing
+
+        var title: String {
+            switch self {
+            case .leading: "左"
+            case .center: "中央"
+            case .trailing: "右"
+            }
+        }
+
+        var alignment: Alignment {
+            switch self {
+            case .leading: .leading
+            case .center: .center
+            case .trailing: .trailing
+            }
+        }
+    }
+
+    static var wideAlignment: WideAlignment {
+        get { storage.string(wideAlignmentKey).flatMap(WideAlignment.init(rawValue:)) ?? .center }
+        set { storage.set(newValue.rawValue, wideAlignmentKey) }
+    }
+
     static var accentColor: String {
         get { storage.string(accentColorKey) ?? defaultAccentColor }
         set { storage.set(newValue, accentColorKey) }

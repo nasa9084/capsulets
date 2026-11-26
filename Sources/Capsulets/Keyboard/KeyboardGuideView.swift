@@ -5,6 +5,7 @@ struct KeyboardGuideView: View {
     @State private var text = ""
     @State private var deleteFlickDistance = KeyboardSettings.deleteFlickDistance
     @State private var accentColor = KeyboardSettings.accentColor
+    @State private var wideAlignment = KeyboardSettings.wideAlignment
 
     var body: some View {
         NavigationStack {
@@ -41,6 +42,21 @@ struct KeyboardGuideView: View {
                 }
                 .onChange(of: accentColor) { _, color in
                     KeyboardSettings.accentColor = color
+                }
+                Section {
+                    Picker("広い画面での位置", selection: $wideAlignment) {
+                        ForEach(KeyboardSettings.WideAlignment.allCases, id: \.self) { alignment in
+                            Text(alignment.title).tag(alignment)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                } header: {
+                    Text("広い画面での位置")
+                } footer: {
+                    Text("iPhone Duo の内側の画面など横に広いときは、キーボードを iPhone くらいの幅にして、ここで選んだ側に寄せます。次にキーボードを出したときから変わります。")
+                }
+                .onChange(of: wideAlignment) { _, alignment in
+                    KeyboardSettings.wideAlignment = alignment
                 }
                 Section {
                     Picker("行削除フリックの感度", selection: $deleteFlickDistance) {
