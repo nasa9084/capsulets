@@ -45,9 +45,9 @@ final class KeyboardViewController: UIInputViewController {
         let proxy = textDocumentProxy
         let contentType = proxy.textContentType.map { $0?.rawValue ?? "なし" } ?? "なし"
         KeyboardLog.add("表示の準備（入力欄の種類: \(Self.keyboardTypeName(proxy.keyboardType ?? .default))、内容: \(contentType)）")
-        Self.visibleCount += 1
         if !isShowingKeyboard {
             isShowingKeyboard = true
+            Self.visibleCount += 1
             host?.rootView = AnyView(KeyboardView(state: state))
         }
         state.reloadSettings()
@@ -100,11 +100,11 @@ final class KeyboardViewController: UIInputViewController {
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         KeyboardLog.add("閉じた")
-        Self.visibleCount = max(0, Self.visibleCount - 1)
         state.releaseMemory(reason: "閉じた", includingConverter: false)
         // 閉じたあとも iOS がこの画面を残すことがあるので、SwiftUI の中身を外しておく
         if isShowingKeyboard {
             isShowingKeyboard = false
+            Self.visibleCount = max(0, Self.visibleCount - 1)
             host?.rootView = AnyView(EmptyView())
         }
         KeyboardLog.sessionEnded()
@@ -116,7 +116,11 @@ final class KeyboardViewController: UIInputViewController {
     private static func restartIfMemoryIsHigh() {
         guard let mb = KeyboardLog.memoryMB(), mb > restartThresholdMB else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            guard visibleCount == 0, let mb = KeyboardLog.memoryMB(), mb > restartThresholdMB else { return }
+            guard let mb = KeyboardLog.memoryMB(), mb > restartThresholdMB else { return }
+            guard visibleCount == 0 else {
+                KeyboardLog.add("メモリが \(Int(mb))MB だが、表示中のキーボードがある（\(visibleCount)）ので終了を見送る")
+                return
+            }
             KeyboardLog.add("メモリが \(Int(mb))MB まで増えたので、キーボードを終了して起動し直す")
             KeyboardLog.sessionEnded()
             KeyboardLog.flush()
@@ -148,9 +152,14 @@ final class KeyboardViewController: UIInputViewController {
         // 画面（SwiftUI）が state を握ったまま残ると、変換エンジンごとメモリに残り続ける。
         // 画面の中身を空にし、state が持っている大きなものも先に手放しておく
         MainActor.assumeIsolated {
+            // 「閉じた」を通らずに終了することがあるので、表示中の数をここでも戻す
+            if isShowingKeyboard {
+                Self.visibleCount = max(0, Self.visibleCount - 1)
+            }
             host?.rootView = AnyView(EmptyView())
             host = nil
             state.tearDown()
+            Self.restartIfMemoryIsHigh()
         }
         KeyboardLog.sessionEnded()
     }
