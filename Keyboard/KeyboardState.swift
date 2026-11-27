@@ -183,6 +183,7 @@ final class KeyboardState: ObservableObject {
 
     /// キーボードが出るたびに、アプリで変えた設定を読み直す
     func reloadSettings() {
+        refreshClipboard()
         let color = Color(hex: KeyboardSettings.accentColor)
         if color != accent {
             accent = color
@@ -242,6 +243,31 @@ final class KeyboardState: ObservableObject {
     }
 
     /// 定型文を入れる。入力中なら、ひらがなのまま確定してから入れる
+    // MARK: - クリップボード
+
+    /// クリップボードに文字があって、読める（フルアクセスがオン）か。
+    /// 中身を読むと iOS が確認を出すことがあるので、ここでは「文字があるか」だけを見る
+    @Published private(set) var canInsertClipboard = false
+
+    func refreshClipboard() {
+        let available = controller?.hasFullAccess == true && UIPasteboard.general.hasStrings
+        if available != canInsertClipboard {
+            canInsertClipboard = available
+        }
+    }
+
+    /// クリップボードの文字を、キーで打ったのと同じように入力する（貼り付けできない欄でも入る）
+    func insertClipboard() {
+        guard let text = UIPasteboard.general.string, !text.isEmpty else {
+            refreshClipboard()
+            return
+        }
+        playSound(.input)
+        resetCompletion()
+        commitAsIs()
+        proxy?.insertText(text)
+    }
+
     func insertSnippet(_ snippet: Snippet) {
         playSound(.input)
         resetCompletion()
@@ -661,6 +687,7 @@ final class KeyboardState: ObservableObject {
     /// 入力中に、アプリが入力欄を空にしたとき（LINE で未確定のまま送信したときなど）は、
     /// 入力中の文字を捨てる。捨てないと、次に打ったときに送信済みの文字がもう一度入ってしまう
     func handleExternalTextChange() {
+        refreshClipboard()
         guard isComposing else { return }
         let before = proxy?.documentContextBeforeInput ?? ""
         let after = proxy?.documentContextAfterInput ?? ""

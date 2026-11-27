@@ -198,6 +198,19 @@ struct CandidateBar: View {
         ScrollViewReader { reader in
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 0) {
+                    // 候補も補完もないときは、クリップボードの文字を入力するボタンを出す
+                    if state.barItems.isEmpty, !state.isComposing, state.canInsertClipboard {
+                        Button {
+                            state.insertClipboard()
+                        } label: {
+                            Label("クリップボードを入力", systemImage: "doc.on.clipboard")
+                                .font(.system(size: 15))
+                                .foregroundStyle(Color.secondary)
+                                .padding(.horizontal, 12)
+                                .frame(maxHeight: .infinity)
+                        }
+                        .buttonStyle(.plain)
+                    }
                     ForEach(Array(state.barItems.enumerated()), id: \.offset) { index, item in
                         Button {
                             state.tapBarItem(index)
