@@ -92,6 +92,7 @@ final class KeyboardState: ObservableObject {
     }
 
     func tapBarItem(_ index: Int) {
+        KeyboardLog.add("候補を選択")
         if isComposing {
             tapCandidate(index)
         } else {

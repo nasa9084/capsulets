@@ -59,7 +59,7 @@ struct KeyboardView: View {
                 .frame(height: Self.candidateBarHeight)
                 // iOS が描くキーボードのパネルに溶け込ませ、キーとの境目に線を引く
                 .overlay(alignment: .bottom) {
-                    Divider().padding(.horizontal, Self.padding)
+                    Divider().padding(.horizontal, Self.padding).allowsHitTesting(false)
                 }
             GeometryReader { geometry in
                 switch state.layout {
@@ -210,7 +210,7 @@ struct CandidateBar: View {
                                 .frame(maxHeight: .infinity)
                                 .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(CandidateButtonStyle())
                     }
                     ForEach(Array(state.barItems.enumerated()), id: \.offset) { index, item in
                         Button {
@@ -225,17 +225,38 @@ struct CandidateBar: View {
                                 // 背景が透明なので、文字のないすき間も押せるようにする
                                 .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(CandidateButtonStyle())
                         .id(index)
                     }
                 }
                 .padding(.horizontal, 4)
             }
+            // 完全に透明だとタッチを取りこぼすことがあるので、見えないくらい薄く塗っておく
+            .background(Color.white.opacity(0.001))
             .onChange(of: state.barItems.first) { _, _ in
                 // 候補が変わったら先頭に戻す
                 reader.scrollTo(0, anchor: .leading)
             }
         }
+    }
+}
+
+/// 候補のボタン。触れている間は色を付けて、タッチが届いたことがわかるようにする
+struct CandidateButtonStyle: ButtonStyle {
+    @Environment(\.keyboardAccent) private var accent
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(configuration.isPressed ? accent.opacity(0.3) : Color.white.opacity(0.001))
+            )
+            .onChange(of: configuration.isPressed) { _, pressed in
+                // 反応が悪いときの切り分け用。「触れた」のあとに「選択」がなければ、途中で取り消されている
+                if pressed {
+                    KeyboardLog.add("候補に触れた")
+                }
+            }
     }
 }
 
