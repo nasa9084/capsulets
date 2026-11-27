@@ -204,7 +204,8 @@ struct TimelineSearchView: View {
                         UnevenRoundedRectangle(topLeadingRadius: 14, topTrailingRadius: 14)
                             .fill(Color(uiColor: .systemBackground))
                             .shadow(color: .black.opacity(0.15), radius: 6, y: -1)
-                            .ignoresSafeArea(edges: .bottom)
+                            // iOS 27 では右側（タブの列）の下まで地図が描かれるので、横にも伸ばして隠す
+                            .ignoresSafeArea(edges: [.bottom, .horizontal])
                     )
                 }
             }

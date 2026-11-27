@@ -49,6 +49,25 @@ enum LocationQueries {
             // 「滞在中」のまま次の滞在があるもの（前に記録した分）は、次に着いた時点で終わったことにする
             let nextArrival = visits.dropFirst(index + 1).first?.arrival
             let departure = visit.departure ?? nextArrival
+            // iOS がまれに「出発が到着より前」の滞在を届けることがある。前の滞在に含まれるものと合わせて飛ばす
+            if let departure, departure < visit.arrival { continue }
+            if let departure, departure <= cursor, visit.arrival < cursor { continue }
+            // 同じ場所での滞在が少しの間を置いて続いたら、1 つにまとめる
+            if let last = result.rows.last, last.kind == .stay, let lastEnd = last.end,
+               last.title == (visit.placeName ?? "滞在"),
+               visit.arrival.timeIntervalSince(lastEnd) < 10 * 60 {
+                let newEnd = departure.map { max($0, lastEnd) }
+                result.rows[result.rows.count - 1] = TimelineRow(
+                    kind: .stay,
+                    start: last.start,
+                    end: newEnd,
+                    title: last.title,
+                    detail: newEnd.map { durationText(from: last.start, to: $0) } ?? "滞在中",
+                    coordinate: last.coordinate
+                )
+                cursor = max(cursor, newEnd ?? end)
+                continue
+            }
             if let move = moveRow(points, from: cursor, to: visit.arrival) {
                 result.rows.append(move)
             }
