@@ -208,6 +208,7 @@ struct CandidateBar: View {
                                 .foregroundStyle(Color.secondary)
                                 .padding(.horizontal, 12)
                                 .frame(maxHeight: .infinity)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                     }
@@ -220,7 +221,9 @@ struct CandidateBar: View {
                                 .foregroundStyle(Color.primary)
                                 .lineLimit(1)
                                 .padding(.horizontal, 12)
-                                .frame(maxHeight: .infinity)
+                                .frame(minWidth: 44, maxHeight: .infinity)
+                                // 背景が透明なので、文字のないすき間も押せるようにする
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .id(index)
