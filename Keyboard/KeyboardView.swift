@@ -193,39 +193,44 @@ struct KeyboardView: View {
 
 struct CandidateBar: View {
     @ObservedObject var state: KeyboardState
+    @Environment(\.keyboardAccent) private var accent
+    /// いま指が触れている候補（クリップボードのボタンは clipboardIndex）
+    @State private var pressed: Int?
+    @State private var frames = FrameBox()
+
+    private static let space = "candidateBar"
+    private static let clipboardIndex = -1
+    /// 指がこれより動いたら、タップではなく横スクロールとみなす
+    private static let tapTolerance: CGFloat = 14
+
+    /// 候補それぞれの位置。描き直しを起こさないよう、参照で持つ
+    private final class FrameBox {
+        var values: [Int: CGRect] = [:]
+    }
+
+    private var showsClipboard: Bool {
+        state.barItems.isEmpty && !state.isComposing && state.canInsertClipboard
+    }
 
     var body: some View {
         ScrollViewReader { reader in
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 0) {
                     // 候補も補完もないときは、クリップボードの文字を入力するボタンを出す
-                    if state.barItems.isEmpty, !state.isComposing, state.canInsertClipboard {
-                        Button {
-                            state.insertClipboard()
-                        } label: {
+                    if showsClipboard {
+                        cell(Self.clipboardIndex) {
                             Label("クリップボードを入力", systemImage: "doc.on.clipboard")
                                 .font(.system(size: 15))
                                 .foregroundStyle(Color.secondary)
-                                .padding(.horizontal, 12)
-                                .frame(maxHeight: .infinity)
-                                .contentShape(Rectangle())
                         }
-                        .buttonStyle(CandidateButtonStyle())
                     }
                     ForEach(Array(state.barItems.enumerated()), id: \.offset) { index, item in
-                        Button {
-                            state.tapBarItem(index)
-                        } label: {
+                        cell(index) {
                             Text(item)
                                 .font(.system(size: 18))
                                 .foregroundStyle(Color.primary)
                                 .lineLimit(1)
-                                .padding(.horizontal, 12)
-                                .frame(minWidth: 44, maxHeight: .infinity)
-                                // 背景が透明なので、文字のないすき間も押せるようにする
-                                .contentShape(Rectangle())
                         }
-                        .buttonStyle(CandidateButtonStyle())
                         .id(index)
                     }
                 }
@@ -233,30 +238,72 @@ struct CandidateBar: View {
             }
             // 完全に透明だとタッチを取りこぼすことがあるので、見えないくらい薄く塗っておく
             .background(Color.white.opacity(0.001))
+            // スクロールの中にボタンを置くと、指が少し動いただけでスクロール扱いになって押せないことがある。
+            // そこでボタンは使わず、欄全体でタッチを受けて「ほとんど動かずに離したらタップ」と自分で判定する
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0, coordinateSpace: .named(Self.space))
+                    .onChanged { value in
+                        let target = moved(value) < Self.tapTolerance ? index(at: value.startLocation) : nil
+                        if pressed != target {
+                            pressed = target
+                        }
+                    }
+                    .onEnded { value in
+                        pressed = nil
+                        let distance = moved(value)
+                        guard distance < Self.tapTolerance else {
+                            KeyboardLog.add("候補の欄をなぞった（\(Int(distance))pt）")
+                            return
+                        }
+                        guard let target = index(at: value.startLocation) else {
+                            KeyboardLog.add("候補のない所をタップ")
+                            return
+                        }
+                        if target == Self.clipboardIndex {
+                            state.insertClipboard()
+                        } else {
+                            state.tapBarItem(target)
+                        }
+                    }
+            )
             .onChange(of: state.barItems.first) { _, _ in
                 // 候補が変わったら先頭に戻す
                 reader.scrollTo(0, anchor: .leading)
             }
         }
+        .coordinateSpace(name: Self.space)
     }
-}
 
-/// 候補のボタン。触れている間は色を付けて、タッチが届いたことがわかるようにする
-struct CandidateButtonStyle: ButtonStyle {
-    @Environment(\.keyboardAccent) private var accent
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
+    private func cell(_ index: Int, @ViewBuilder label: () -> some View) -> some View {
+        label()
+            .padding(.horizontal, 12)
+            .frame(minWidth: 44, maxHeight: .infinity)
+            // 触れている間は色を付けて、タッチが届いたことがわかるようにする
             .background(
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(configuration.isPressed ? accent.opacity(0.3) : Color.white.opacity(0.001))
+                    .fill(pressed == index ? accent.opacity(0.3) : Color.clear)
             )
-            .onChange(of: configuration.isPressed) { _, pressed in
-                // 反応が悪いときの切り分け用。「触れた」のあとに「選択」がなければ、途中で取り消されている
-                if pressed {
-                    KeyboardLog.add("候補に触れた")
-                }
+            .onGeometryChange(for: CGRect.self) { proxy in
+                proxy.frame(in: .named(Self.space))
+            } action: { frame in
+                frames.values[index] = frame
             }
+    }
+
+    private func moved(_ value: DragGesture.Value) -> CGFloat {
+        hypot(value.translation.width, value.translation.height)
+    }
+
+    /// その位置にある候補。上下は欄の高さいっぱいまで押せる
+    private func index(at location: CGPoint) -> Int? {
+        if showsClipboard {
+            guard let frame = frames.values[Self.clipboardIndex] else { return nil }
+            return frame.minX...frame.maxX ~= location.x ? Self.clipboardIndex : nil
+        }
+        return state.barItems.indices.first { index in
+            guard let frame = frames.values[index] else { return false }
+            return frame.minX...frame.maxX ~= location.x
+        }
     }
 }
 
